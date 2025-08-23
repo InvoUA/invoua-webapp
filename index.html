@@ -23,7 +23,13 @@
     .ok { color: #0a7d2f; }
     .err { color: #b00020; }
     .hidden { display:none; }
+    /* невидима зона для рендеру HTML інвойсу у PDF */
+    #printArea { position: fixed; left: -99999px; top: 0; width: 794px; background: #fff; }
   </style>
+
+  <!-- бібліотеки для PDF у браузері -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha512-YkF3M6s1Q4Hjsc1fBVj9pZr2gqB4nW4dDVX31t7Hc3r3jzT1j8F6H3B3l7lF9Z3q9Jt4qgphM8pGvR0b7mWWbw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha512-BNa5zsxgQ0m8+QZc0qE4nq9PzVqv5g4+J9rGgS3D0k8yG7sFZp3S7nOQ9yGhmkZbP3pZ2JjQH1xX9yVqf3L1/A==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
   <h1>InvoUA — рахунок за 60 секунд</h1>
@@ -64,6 +70,8 @@
     <div id="toast" class="toast ok"></div>
   </div>
 
+  <div id="printArea"></div>
+
   <p class="muted">Ця сторінка працює як Telegram Mini App. API-адреса береться з параметра <code>?api=</code>.</p>
 
 <script>
@@ -71,7 +79,6 @@
   const tg = window.Telegram?.WebApp;
   if (tg) try { tg.expand(); } catch(e) {}
 
-  // ---- утиліти ----
   const $ = s => document.querySelector(s);
   const qs = new URLSearchParams(location.search);
   const API = qs.get('api')?.replace(/\/$/,'') || '';
@@ -88,9 +95,7 @@
     tr.querySelector('.del').onclick = () => tr.remove();
     tbody.appendChild(tr);
   }
-
   $('#add').onclick = () => addRow();
-  // стартові 2 позиції
   addRow('Консультаційні послуги', '1', 'se', '1200');
   addRow('Реклама', '1', 'se', '500');
 
@@ -119,35 +124,96 @@
     return await r.json();
   }
 
-  // головна фіча: тягнемо PDF з заголовком, щоб обійти «віталку» ngrok
-  async function downloadPdf(url){
-    const r = await fetch(url, { headers: { 'ngrok-skip-browser-warning': '1' } });
-    if(!r.ok) throw new Error('PDF failed ' + r.status);
-    const blob = await r.blob();
-    const blobUrl = URL.createObjectURL(blob);
+  async function fetchInvoiceHtml(url){
+    // обходимо ngrok warning
+    const r = await fetch(url + (url.includes('?')?'&':'?') + 'ngrok-skip-browser-warning=1', {
+      headers: { 'ngrok-skip-browser-warning': '1' }
+    });
+    if(!r.ok) throw new Error('HTML failed ' + r.status);
+    return await r.text();
+  }
 
-    // спробуємо «нативне» відкриття
-    if (tg?.openLink) {
-      tg.openLink(blobUrl);
+  async function makePdfFromHtml(html){
+    // рендеримо отриманий HTML у прихованій області та конвертуємо у PDF
+    const holder = $('#printArea');
+    holder.innerHTML = html;
+
+    // невелика затримка, щоб браузер відмалював шрифти/зображення
+    await new Promise(r => setTimeout(r, 50));
+
+    const canvas = await html2canvas(holder, { scale: 2, useCORS: true });
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p','mm','a4');
+    const pdfW = pdf.internal.pageSize.getWidth();
+    const pdfH = pdf.internal.pageSize.getHeight();
+
+    // пропорційно вписуємо зображення в ширину сторінки
+    const imgW = pdfW;
+    const imgH = canvas.height * (imgW / canvas.width);
+
+    let y = 0;
+    if (imgH <= pdfH) {
+      pdf.addImage(imgData, 'JPEG', 0, 0, imgW, imgH);
     } else {
-      // звичайний браузер: автоскачування
+      // простий пагінатор по висоті
+      let remaining = imgH;
+      let s = canvas;
+      while (remaining > 0) {
+        const pageCanvas = document.createElement('canvas');
+        pageCanvas.width = canvas.width;
+        const pageHeightPx = Math.min(canvas.height, Math.round(pdfH * canvas.width / pdfW));
+        pageCanvas.height = pageHeightPx;
+
+        const ctx = pageCanvas.getContext('2d');
+        ctx.drawImage(canvas, 0, -y * (canvas.width / pdfW), canvas.width, canvas.height);
+
+        const pageImg = pageCanvas.toDataURL('image/jpeg', 0.95);
+        pdf.addImage(pageImg, 'JPEG', 0, 0, pdfW, pdfH);
+
+        remaining -= pdfH;
+        y += pdfH;
+        if (remaining > 0) pdf.addPage();
+      }
+    }
+
+    // відкриваємо PDF
+    const blobUrl = pdf.output('bloburl');
+    if (window.Telegram?.WebApp?.openLink) {
+      window.Telegram.WebApp.openLink(blobUrl);
+    } else {
       const a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = 'invoice.pdf';
-      document.body.appendChild(a);
-      a.click();
+      a.href = blobUrl; a.download = 'invoice.pdf';
+      document.body.appendChild(a); a.click();
       setTimeout(()=>URL.revokeObjectURL(blobUrl), 5000);
     }
   }
 
-  // UI-хендлери
   $('#save').onclick = async () => {
     try{
       const res = await saveInvoice();
       $('#result').classList.remove('hidden');
+      $('#toast').classList.remove('err'); $('#toast').classList.add('ok');
       $('#toast').textContent = `Збережено. № ${res.number}. Сума: ${res.total}`;
-      $('#btnPdf').onclick  = () => downloadPdf(res.pdf_url);
-      $('#btnHtml').onclick = () => tg?.openLink ? tg.openLink(res.public_url) : window.open(res.public_url, '_blank');
+
+      // HTML відкриваємо напряму
+      $('#btnHtml').onclick = () =>
+        (window.Telegram?.WebApp?.openLink
+          ? window.Telegram.WebApp.openLink(res.public_url)
+          : window.open(res.public_url, '_blank'));
+
+      // PDF — генеруємо на клієнті з HTML
+      $('#btnPdf').onclick  = async () => {
+        try {
+          const html = await fetchInvoiceHtml(res.public_url);
+          await makePdfFromHtml(html);
+        } catch (e) {
+          $('#toast').classList.remove('ok'); $('#toast').classList.add('err');
+          $('#toast').textContent = 'Помилка PDF: ' + e.message;
+        }
+      };
+
       $('#btnNew').onclick  = () => location.reload();
     }catch(e){
       $('#result').classList.remove('hidden');
