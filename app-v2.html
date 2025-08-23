@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>InvoUA — рахунок за 60 секунд (v2, Cyrillic PDF)</title>
+  <title>InvoUA — рахунок за 60 секунд (v2.1, Cyrillic PDF)</title>
   <style>
     :root { --gap: 10px; }
     body { font-family: system-ui, -apple-system, Arial, sans-serif; margin: 0; padding: 14px; }
@@ -27,7 +27,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
-  <h1>InvoUA — рахунок за 60 секунд <span style="color:#888;font-size:12px">/ v2</span></h1>
+  <h1>InvoUA — рахунок за 60 секунд <span style="color:#888;font-size:12px">/ v2.1</span></h1>
 
   <div class="grid">
     <div>
@@ -127,6 +127,7 @@
 
   function money(x){ return (Number(x)||0).toFixed(2); }
 
+  // ---- Вбудовуємо TTF у jsPDF ----
   function ab2b64(buf){
     let binary = ''; const bytes = new Uint8Array(buf);
     const chunk = 0x8000;
@@ -137,8 +138,6 @@
   }
 
   async function loadFontsInto(pdf){
-    // шляхи до шрифтів у цьому ж репозиторії
-    // напр.: https://invoua.github.io/invoua-webapp/fonts/DejaVuSans.ttf
     const base = location.origin + location.pathname.replace(/\/[^\/]*$/, '') + '/fonts';
     const files = [
       {file:'DejaVuSans.ttf', name:'DejaVu', style:'normal'},
@@ -154,12 +153,9 @@
     pdf.setFont('DejaVu','normal');
   }
 
-  function renderPdfFromJson(doc){
-    const { jsPDF } = window.jspdf || {};
-    if(!jsPDF) throw new Error('jsPDF не завантажився');
-    const pdf = new jsPDF('p','mm','a4');
+  // ---- Рендер у ВЖЕ-СТВОРЕНИЙ pdf (шрифти підвантажені саме в нього) ----
+  function renderPdfFromJson(doc, pdf){
     const M = 12, W = pdf.internal.pageSize.getWidth() - M*2;
-
     const cur = doc.invoice.currency || 'UAH';
     const s = doc.seller || {}, b = doc.buyer || {};
     let y = 18;
@@ -227,18 +223,9 @@
       pdf.text('Примітки:', M, y); y += 5;
       pdf.text(pdf.splitTextToSize(String(doc.invoice.notes), W), M, y);
     }
-
-    const url = pdf.output('bloburl');
-    if (window.Telegram?.WebApp?.openLink) {
-      window.Telegram.WebApp.openLink(url);
-    } else {
-      const a = document.createElement('a'); a.href = url; a.download = 'invoice.pdf';
-      document.body.appendChild(a); a.click();
-      setTimeout(()=>URL.revokeObjectURL(url), 5000);
-    }
   }
 
-  // UI
+  // ---- UI ----
   $('#save').onclick = async () => {
     try{
       const res = await saveInvoice();
@@ -246,22 +233,36 @@
       $('#toast').classList.remove('err'); $('#toast').classList.add('ok');
       $('#toast').textContent = `Збережено. № ${res.number}. Сума: ${res.total}`;
 
+      // HTML (для поділитися)
       $('#btnHtml').onclick = () => {
         const url = res.public_url + (res.public_url.includes('?') ? '&' : '?') + 'ngrok-skip-browser-warning=1';
         (window.Telegram?.WebApp?.openLink ? window.Telegram.WebApp.openLink(url) : window.open(url, '_blank'));
       };
 
+      // PDF (клієнтська генерація з JSON + вбудовані TTF)
       $('#btnPdf').onclick  = async () => {
         try {
           const id = res.id || res.invoice_id;
           const doc = await getInvoiceJson(id);
+
           const { jsPDF } = window.jspdf || {};
+          if(!jsPDF) throw new Error('jsPDF не завантажився');
+
+          // 1) створюємо pdf
           const pdf = new jsPDF('p','mm','a4');
-          await loadFontsInto(pdf); // 👈 вбудовуємо кириличні шрифти
-          // далі генеруємо з тими ж шрифтами
-          // щоб не дублювати код, просто передамо doc ще раз у рендерер:
-          // (створимо новий інстанс, бо ми вбудували шрифти у "pdf" для цього виклику)
-          renderPdfFromJson(doc);
+          // 2) вбудовуємо кириличні шрифти у ЦЕЙ pdf
+          await loadFontsInto(pdf);
+          // 3) рендеримо у ТОЙ ЖЕ pdf
+          renderPdfFromJson(doc, pdf);
+          // 4) відкриваємо
+          const url = pdf.output('bloburl');
+          if (window.Telegram?.WebApp?.openLink) {
+            window.Telegram.WebApp.openLink(url);
+          } else {
+            const a = document.createElement('a'); a.href = url; a.download = 'invoice.pdf';
+            document.body.appendChild(a); a.click();
+            setTimeout(()=>URL.revokeObjectURL(url), 5000);
+          }
         } catch (e) {
           $('#toast').classList.remove('ok'); $('#toast').classList.add('err');
           $('#toast').textContent = 'Помилка PDF: ' + e.message;
