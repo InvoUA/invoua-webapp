@@ -2,8 +2,8 @@
 <html lang="uk">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>InvoUA — рахунок за 60 секунд (v2.1, Cyrillic PDF)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>InvoUA — рахунок за 60 секунд (v2.2, Cyrillic PDF)</title>
   <style>
     :root { --gap: 10px; }
     body { font-family: system-ui, -apple-system, Arial, sans-serif; margin: 0; padding: 14px; }
@@ -12,11 +12,11 @@
     label { font-size:12px; color:#444; }
     input, select { width:100%; padding:8px; border:1px solid #ccc; border-radius:8px; }
     table { width:100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { border:1px solid #ddd; padding:8px; font-size:14px; }
+    th, td { border:1px solid #ddd; padding:8px; font-size:14px; vertical-align: top; }
     th { background:#f8f8f8; text-align:left; }
     .btns { margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; }
-    button { padding:10px 14px; border:0; border-radius:999px; background:#0a84ff; color:#fff; font-weight:600; }
-    button.secondary { background:#eee; color:#222; }
+    button, .btn { padding:10px 14px; border:0; border-radius:999px; background:#0a84ff; color:#fff; font-weight:600; text-decoration:none; display:inline-block }
+    button.secondary, .btn.secondary { background:#eee; color:#222; }
     .muted { color:#666; font-size:12px; }
     .toast { margin-top:10px; font-size:13px; }
     .ok { color: #0a7d2f; }
@@ -26,9 +26,8 @@
   <!-- jsPDF -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
-<script src="./webapp_bridge.js"></script>
 <body>
-  <h1>InvoUA — рахунок за 60 секунд <span style="color:#888;font-size:12px">/ v2.1</span></h1>
+  <h1>InvoUA — рахунок за 60 секунд <span style="color:#888;font-size:12px">/ v2.2</span></h1>
 
   <div class="grid">
     <div>
@@ -60,7 +59,8 @@
   <div id="result" class="hidden">
     <div class="btns">
       <button id="btnPdf">Завантажити PDF</button>
-      <button id="btnHtml" class="secondary">Поділитися (HTML)</button>
+      <a id="btnHtml" class="btn secondary" href="#" target="_blank" rel="noopener">Поділитися (HTML)</a>
+      <button id="btnSend" class="secondary">Надіслати PDF у чат</button>
       <button id="btnNew" class="secondary">Новий</button>
     </div>
     <div id="toast" class="toast ok"></div>
@@ -71,13 +71,23 @@
 <script>
 (function(){
   const tg = window.Telegram?.WebApp;
-  if (tg) try { tg.expand(); } catch(e) {}
+  if (tg) { try { tg.expand(); } catch(e) {} }
 
   const $ = s => document.querySelector(s);
   const qs = new URLSearchParams(location.search);
   const API = qs.get('api')?.replace(/\/$/,'') || '';
 
+  // ---------- LocalStorage helpers ----------
+  const LS_KEY = 'invoua_v2_form';
+  function loadState(){
+    try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}'); } catch(_) { return {}; }
+  }
+  function saveState(state){
+    try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch(_) {}
+  }
+
   const tbody = $('#items tbody');
+
   function addRow(name='', qty='1', unit='se', price='0'){
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -86,28 +96,54 @@
       <td><input class="unit" value="${unit}"></td>
       <td><input class="price" type="number" step="0.01" value="${price}"></td>
       <td><button class="secondary del">x</button></td>`;
-    tr.querySelector('.del').onclick = () => tr.remove();
+    tr.querySelector('.del').onclick = () => { tr.remove(); persistForm(); };
+    tr.querySelectorAll('input').forEach(el => el.addEventListener('input', persistForm));
     tbody.appendChild(tr);
   }
-  $('#add').onclick = () => addRow();
-  addRow('Консультаційні послуги', '1', 'se', '1200');
-  addRow('Реклама', '1', 'se', '500');
 
   function collectItems(){
     return [...tbody.querySelectorAll('tr')].map(tr => ({
       name: tr.querySelector('.name').value.trim(),
-      qty: tr.querySelector('.qty').value || '1',
+      qty: (tr.querySelector('.qty').value || '1'),
       unit: tr.querySelector('.unit').value || 'se',
-      price: tr.querySelector('.price').value || '0'
+      price: (tr.querySelector('.price').value || '0')
     })).filter(it => it.name);
   }
 
+  function persistForm(){
+    saveState({
+      buyer_name: $('#buyer_name').value.trim(),
+      currency: $('#currency').value,
+      items: collectItems()
+    });
+  }
+
+  // Prefill from LS
+  const st = loadState();
+  if (st.buyer_name) $('#buyer_name').value = st.buyer_name;
+  if (st.currency) $('#currency').value = st.currency;
+
+  if (st.items && Array.isArray(st.items) && st.items.length){
+    st.items.forEach(it => addRow(it.name, it.qty, it.unit, it.price));
+  } else {
+    addRow('Консультаційні послуги', '1', 'se', '1200');
+    addRow('Реклама', '1', 'se', '500');
+  }
+  $('#buyer_name').addEventListener('input', persistForm);
+  $('#currency').addEventListener('change', persistForm);
+
+  $('#add').onclick = () => { addRow(); persistForm(); };
+
+  // ---------- API ----------
   async function saveInvoice(){
-    if(!API){ alert('Не задано ?api= у URL'); return; }
+    if (!API) { alert('Не задано ?api= у URL'); throw new Error('No API'); }
+    const items = collectItems();
+    if (!items.length) throw new Error('Додайте хоча б одну позицію');
+
     const payload = {
       invoice: { currency: $('#currency').value },
       buyer:   { name: $('#buyer_name').value.trim() },
-      items:   collectItems()
+      items
     };
     const r = await fetch(API + '/api/invoices', {
       method:'POST',
@@ -128,7 +164,7 @@
 
   function money(x){ return (Number(x)||0).toFixed(2); }
 
-  // ---- Вбудовуємо TTF у jsPDF ----
+  // ---------- Fonts into jsPDF ----------
   function ab2b64(buf){
     let binary = ''; const bytes = new Uint8Array(buf);
     const chunk = 0x8000;
@@ -154,7 +190,7 @@
     pdf.setFont('DejaVu','normal');
   }
 
-  // ---- Рендер у ВЖЕ-СТВОРЕНИЙ pdf (шрифти підвантажені саме в нього) ----
+  // ---------- Render PDF ----------
   function renderPdfFromJson(doc, pdf){
     const M = 12, W = pdf.internal.pageSize.getWidth() - M*2;
     const cur = doc.invoice.currency || 'UAH';
@@ -226,21 +262,48 @@
     }
   }
 
-  // ---- UI ----
+  function withNgrokSkip(u){
+    return !u ? u : (u.includes('ngrok-skip-browser-warning=1') ? u :
+      u + (u.includes('?') ? '&' : '?') + 'ngrok-skip-browser-warning=1');
+  }
+
+  // ---------- UI actions ----------
   $('#save').onclick = async () => {
     try{
       const res = await saveInvoice();
+      window.__lastInvoice = res; // збережемо для інших дій
+
+      // показати результати
       $('#result').classList.remove('hidden');
       $('#toast').classList.remove('err'); $('#toast').classList.add('ok');
       $('#toast').textContent = `Збережено. № ${res.number}. Сума: ${res.total}`;
 
       // HTML (для поділитися)
-      $('#btnHtml').onclick = () => {
-        const url = res.public_url + (res.public_url.includes('?') ? '&' : '?') + 'ngrok-skip-browser-warning=1';
-        (window.Telegram?.WebApp?.openLink ? window.Telegram.WebApp.openLink(url) : window.open(url, '_blank'));
+      const htmlUrl = withNgrokSkip(res.public_url);
+      $('#btnHtml').href = htmlUrl;
+
+      // Надіслати у чат — через WebApp.sendData (бот завантажить PDF і пришле ФАЙЛОМ)
+      $('#btnSend').onclick = () => {
+        try {
+          const payload = {
+            type: 'invoice_created',
+            id: res.id,
+            number: res.number,
+            pdf_url: withNgrokSkip(res.pdf_url),
+            html_url: htmlUrl
+          };
+          if (tg?.sendData) {
+            tg.sendData(JSON.stringify(payload));
+            tg.showAlert?.('Надсилаю PDF у чат. Це вікно можна закрити.');
+          } else {
+            alert('Telegram WebApp SDK недоступний у цьому середовищі.');
+          }
+        } catch (e) {
+          alert('Помилка надсилання у чат: ' + e.message);
+        }
       };
 
-      // PDF (клієнтська генерація з JSON + вбудовані TTF)
+      // Генерація PDF на клієнті (вбудовані TTF)
       $('#btnPdf').onclick  = async () => {
         try {
           const id = res.id || res.invoice_id;
@@ -249,20 +312,22 @@
           const { jsPDF } = window.jspdf || {};
           if(!jsPDF) throw new Error('jsPDF не завантажився');
 
-          // 1) створюємо pdf
           const pdf = new jsPDF('p','mm','a4');
-          // 2) вбудовуємо кириличні шрифти у ЦЕЙ pdf
           await loadFontsInto(pdf);
-          // 3) рендеримо у ТОЙ ЖЕ pdf
           renderPdfFromJson(doc, pdf);
-          // 4) відкриваємо
-          const url = pdf.output('bloburl');
-          if (window.Telegram?.WebApp?.openLink) {
-            window.Telegram.WebApp.openLink(url);
-          } else {
-            const a = document.createElement('a'); a.href = url; a.download = 'invoice.pdf';
-            document.body.appendChild(a); a.click();
-            setTimeout(()=>URL.revokeObjectURL(url), 5000);
+
+          // спробуємо одразу збереження файлу (назва = номер або id)
+          const fname = `invoice-${(res.number || id || 'invo')}.pdf`.replace(/[^\w\-.]+/g, '_');
+          try {
+            pdf.save(fname, { returnPromise: true }).catch(()=>{}); // для деяких браузерів
+          } catch(_) {
+            const url = pdf.output('bloburl');
+            if (tg?.openLink) tg.openLink(url);
+            else {
+              const a = document.createElement('a'); a.href = url; a.download = fname;
+              document.body.appendChild(a); a.click();
+              setTimeout(()=>URL.revokeObjectURL(url), 5000);
+            }
           }
         } catch (e) {
           $('#toast').classList.remove('ok'); $('#toast').classList.add('err');
@@ -270,7 +335,19 @@
         }
       };
 
-      $('#btnNew').onclick  = () => location.reload();
+      $('#btnNew').onclick  = () => { localStorage.removeItem(LS_KEY); location.reload(); };
+
+      // авто-повідомлення в бота (необов’язково; можна закоментувати)
+      try {
+        tg?.sendData?.(JSON.stringify({
+          type: 'invoice_created',
+          id: res.id,
+          number: res.number,
+          pdf_url: withNgrokSkip(res.pdf_url),
+          html_url: htmlUrl
+        }));
+      } catch(_){}
+
     }catch(e){
       $('#result').classList.remove('hidden');
       $('#toast').classList.remove('ok'); $('#toast').classList.add('err');
@@ -279,5 +356,8 @@
   };
 })();
 </script>
+
+<!-- Місток автоповідомлення (можна лишити): ловить успішний POST /api/invoices -->
+<script src="./webapp_bridge.js"></script>
 </body>
 </html>
