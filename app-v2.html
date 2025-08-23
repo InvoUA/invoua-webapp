@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>InvoUA — рахунок за 60 секунд (v2)</title>
+  <title>InvoUA — рахунок за 60 секунд (v2, Cyrillic PDF)</title>
   <style>
     :root { --gap: 10px; }
     body { font-family: system-ui, -apple-system, Arial, sans-serif; margin: 0; padding: 14px; }
@@ -23,7 +23,7 @@
     .err { color: #b00020; }
     .hidden { display:none; }
   </style>
-  <!-- Лише jsPDF (без html2canvas) -->
+  <!-- jsPDF -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
@@ -127,34 +127,64 @@
 
   function money(x){ return (Number(x)||0).toFixed(2); }
 
-  function pdfFromJson(doc){
-    const { jsPDF } = window.jspdf || {};
-    if(!jsPDF){ throw new Error('jsPDF не завантажився'); }
+  function ab2b64(buf){
+    let binary = ''; const bytes = new Uint8Array(buf);
+    const chunk = 0x8000;
+    for (let i=0; i<bytes.length; i+=chunk){
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i+chunk));
+    }
+    return btoa(binary);
+  }
 
+  async function loadFontsInto(pdf){
+    // шляхи до шрифтів у цьому ж репозиторії
+    // напр.: https://invoua.github.io/invoua-webapp/fonts/DejaVuSans.ttf
+    const base = location.origin + location.pathname.replace(/\/[^\/]*$/, '') + '/fonts';
+    const files = [
+      {file:'DejaVuSans.ttf', name:'DejaVu', style:'normal'},
+      {file:'DejaVuSans-Bold.ttf', name:'DejaVu', style:'bold'}
+    ];
+    for (const f of files){
+      const res = await fetch(`${base}/${f.file}`, {cache:'reload'});
+      if (!res.ok) throw new Error(`Font ${f.file} ${res.status}`);
+      const buf = await res.arrayBuffer();
+      pdf.addFileToVFS(f.file, ab2b64(buf));
+      pdf.addFont(f.file, f.name, f.style);
+    }
+    pdf.setFont('DejaVu','normal');
+  }
+
+  function renderPdfFromJson(doc){
+    const { jsPDF } = window.jspdf || {};
+    if(!jsPDF) throw new Error('jsPDF не завантажився');
     const pdf = new jsPDF('p','mm','a4');
     const M = 12, W = pdf.internal.pageSize.getWidth() - M*2;
 
-    // Заголовок
-    pdf.setFontSize(16); pdf.setFont('helvetica','bold');
-    pdf.text(`Рахунок ${doc.invoice.number || ''}`, M, 18);
-    pdf.setFontSize(10); pdf.setFont('helvetica','normal');
-    pdf.text(`Дата: ${doc.invoice.issue_date || ''}`, M, 24);
-
+    const cur = doc.invoice.currency || 'UAH';
     const s = doc.seller || {}, b = doc.buyer || {};
-    let y = 32;
-    pdf.setFont('helvetica','bold'); pdf.text('Продавець', M, y);
-    pdf.setFont('helvetica','normal');
-    [s.name, s.tax_id && `ЄДРПОУ/ІПН: ${s.tax_id}`, s.iban && `IBAN: ${s.iban}`, s.address]
-      .filter(Boolean).forEach((t,i)=> pdf.text(String(t), M, y+6+i*5));
+    let y = 18;
 
-    pdf.setFont('helvetica','bold'); pdf.text('Покупець', M+W/2, y);
-    pdf.setFont('helvetica','normal');
-    [b.name, b.tax_id && `ЄДРПОУ/ІПН: ${b.tax_id}`, b.iban && `IBAN: ${b.iban}`, b.address]
-      .filter(Boolean).forEach((t,i)=> pdf.text(String(t), M+W/2, y+6+i*5));
+    pdf.setFont('DejaVu','bold'); pdf.setFontSize(16);
+    pdf.text(`Рахунок ${doc.invoice.number || ''}`, M, y); y += 6;
 
-    y += 6 + Math.max(4,4)*5 + 6;
+    pdf.setFont('DejaVu','normal'); pdf.setFontSize(10);
+    pdf.text(`Дата: ${doc.invoice.issue_date || ''}`, M, y);
+    if (doc.invoice.due_date) pdf.text(`Оплатити до: ${doc.invoice.due_date}`, M+60, y);
+    y += 10;
 
-    // Таблиця
+    pdf.setFont('DejaVu','bold'); pdf.text('Продавець', M, y);
+    pdf.setFont('DejaVu','normal');
+    const sellerLines = [s.name, s.tax_id && `ЄДРПОУ/ІПН: ${s.tax_id}`, s.iban && `IBAN: ${s.iban}`, s.address].filter(Boolean);
+    sellerLines.forEach((t,i)=> pdf.text(String(t), M, y+6+i*5));
+
+    pdf.setFont('DejaVu','bold'); pdf.text('Покупець', M+W/2, y);
+    pdf.setFont('DejaVu','normal');
+    const buyerLines = [b.name, b.tax_id && `ЄДРПОУ/ІПН: ${b.tax_id}`, b.iban && `IBAN: ${b.iban}`, b.address].filter(Boolean);
+    buyerLines.forEach((t,i)=> pdf.text(String(t), M+W/2, y+6+i*5));
+
+    y += 6 + Math.max(sellerLines.length, buyerLines.length)*5 + 8;
+
+    // Таблиця позицій
     const cols = [
       { key:'name',  title:'Найменування', w:86 },
       { key:'qty',   title:'К-сть',         w:20 },
@@ -162,9 +192,9 @@
       { key:'price', title:'Ціна',          w:30 },
       { key:'line_total', title:'Сума',     w:30 },
     ];
-    pdf.setFont('helvetica','bold');
+    pdf.setFont('DejaVu','bold');
     let x = M; cols.forEach(c=>{ pdf.text(c.title, x+1, y); x += c.w; });
-    y += 4; pdf.setFont('helvetica','normal');
+    y += 5; pdf.setFont('DejaVu','normal');
 
     (doc.items||[]).forEach(it=>{
       x = M;
@@ -187,12 +217,11 @@
     });
 
     y += 2;
-    const cur = doc.invoice.currency || 'UAH';
     pdf.text(`Разом без ПДВ: ${money(doc.invoice.subtotal)} ${cur}`, M+W/2, y); y += 6;
     pdf.text(`ПДВ: ${money(doc.invoice.tax_total)} ${cur}`, M+W/2, y); y += 6;
-    pdf.setFont('helvetica','bold');
+    pdf.setFont('DejaVu','bold');
     pdf.text(`До оплати: ${money(doc.invoice.total)} ${cur}`, M+W/2, y); y += 8;
-    pdf.setFont('helvetica','normal');
+    pdf.setFont('DejaVu','normal');
 
     if (doc.invoice.notes){
       pdf.text('Примітки:', M, y); y += 5;
@@ -209,6 +238,7 @@
     }
   }
 
+  // UI
   $('#save').onclick = async () => {
     try{
       const res = await saveInvoice();
@@ -216,18 +246,22 @@
       $('#toast').classList.remove('err'); $('#toast').classList.add('ok');
       $('#toast').textContent = `Збережено. № ${res.number}. Сума: ${res.total}`;
 
-      // HTML
       $('#btnHtml').onclick = () => {
         const url = res.public_url + (res.public_url.includes('?') ? '&' : '?') + 'ngrok-skip-browser-warning=1';
         (window.Telegram?.WebApp?.openLink ? window.Telegram.WebApp.openLink(url) : window.open(url, '_blank'));
       };
 
-      // PDF з JSON (клієнтська генерація)
       $('#btnPdf').onclick  = async () => {
         try {
           const id = res.id || res.invoice_id;
           const doc = await getInvoiceJson(id);
-          pdfFromJson(doc);
+          const { jsPDF } = window.jspdf || {};
+          const pdf = new jsPDF('p','mm','a4');
+          await loadFontsInto(pdf); // 👈 вбудовуємо кириличні шрифти
+          // далі генеруємо з тими ж шрифтами
+          // щоб не дублювати код, просто передамо doc ще раз у рендерер:
+          // (створимо новий інстанс, бо ми вбудували шрифти у "pdf" для цього виклику)
+          renderPdfFromJson(doc);
         } catch (e) {
           $('#toast').classList.remove('ok'); $('#toast').classList.add('err');
           $('#toast').textContent = 'Помилка PDF: ' + e.message;
