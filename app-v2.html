@@ -3,118 +3,72 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>InvoUA — рахунок за 60 секунд / v2.2</title>
+<title>InvoUA — рахунок за 60 секунд / v2.3</title>
 <style>
-:root{--gap:10px}
-body{font-family:system-ui,-apple-system,Arial,sans-serif;margin:0;padding:14px}
-h1{font-size:20px;margin:0 0 12px 0}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--gap)}
-label{font-size:12px;color:#444}
-input,select{width:100%;padding:8px;border:1px solid #ccc;border-radius:8px}
-table{width:100%;border-collapse:collapse;margin-top:10px}
-th,td{border:1px solid #ddd;padding:8px;font-size:14px}
-th{background:#f8f8f8;text-align:left}
-.btns{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap}
+:root{--gap:10px} body{font-family:system-ui,-apple-system,Arial,sans-serif;margin:0;padding:14px}
+h1{font-size:20px;margin:0 0 12px 0}.grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--gap)}
+label{font-size:12px;color:#444} input,select{width:100%;padding:8px;border:1px solid #ccc;border-radius:8px}
+table{width:100%;border-collapse:collapse;margin-top:10px} th,td{border:1px solid #ddd;padding:8px;font-size:14px}
+th{background:#f8f8f8;text-align:left}.btns{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap}
 button{padding:10px 14px;border:0;border-radius:999px;background:#0a84ff;color:#fff;font-weight:600}
-button.secondary{background:#eee;color:#222}
-.muted{color:#666;font-size:12px}
-.toast{margin-top:10px;font-size:13px}
-.ok{color:#0a7d2f}.err{color:#b00020}.hidden{display:none}
+button.secondary{background:#eee;color:#222}.muted{color:#666;font-size:12px}
+.toast{margin-top:10px;font-size:13px}.ok{color:#0a7d2f}.err{color:#b00020}.hidden{display:none}
 .card{border:1px solid #eee;border-radius:12px;padding:12px;margin-bottom:12px}
-.card h2{font-size:14px;margin:0 0 8px 0;color:#333}
-.row{display:flex;gap:10px;flex-wrap:wrap}
-.row>div{flex:1 1 240px}
+.card h2{font-size:14px;margin:0 0 8px 0;color:#333}.row{display:flex;gap:10px;flex-wrap:wrap}.row>div{flex:1 1 240px}
 .small{font-size:12px;color:#666}
 </style>
 <script src="./webapp_bridge.js"></script>
 </head>
 <body>
-<h1>InvoUA — рахунок за 60 секунд <span class="small">/ v2.2</span></h1>
+<h1>InvoUA — рахунок за 60 секунд <span class="small">/ v2.3</span></h1>
 
-<!-- ПРОДАВЕЦЬ -->
-<div class="card">
-  <h2>Профіль продавця</h2>
-  <div class="row">
-    <div><label>Назва/ПІБ</label><input id="s_name" disabled></div>
-    <div><label>ЄДРПОУ/ІПН</label><input id="s_tax" disabled></div>
-    <div><label>IBAN</label><input id="s_iban" disabled></div>
-    <div><label>Банк</label><input id="s_bank" disabled></div>
-    <div><label>Адреса</label><input id="s_addr" disabled></div>
-    <div><label>Email</label><input id="s_email" disabled></div>
-    <div><label>Телефон</label><input id="s_phone" disabled></div>
-  </div>
-  <div class="row">
-    <div><label>Логотип URL</label><input id="s_logo" disabled></div>
-    <div><label>Печатка URL</label><input id="s_stamp" disabled></div>
-    <div><label>Підпис URL</label><input id="s_sign" disabled></div>
-  </div>
-  <div class="btns">
-    <button id="seller_edit" class="secondary">Редагувати</button>
-    <button id="seller_save" class="secondary">Зберегти профіль</button>
-    <label class="small">Або завантаж:</label>
-    <input type="file" id="up_logo" accept="image/*"/><span class="small">логотип</span>
-    <input type="file" id="up_stamp" accept="image/*"/><span class="small">печатка</span>
-    <input type="file" id="up_sign"  accept="image/*"/><span class="small">підпис</span>
-  </div>
-</div>
+<!-- (профіль продавця опущено для стислості — лиши як у твоїй актуальній v2.2, він сумісний) -->
 
-<!-- ФОРМА ІНВОЙСУ -->
 <div class="grid">
-  <div>
-    <label>Покупець (назва/ПІБ)</label>
-    <input id="buyer_name" placeholder="ТОВ Приклад">
-  </div>
-  <div>
-    <label>Валюта</label>
-    <select id="currency"><option>UAH</option><option>USD</option><option>EUR</option></select>
-  </div>
+  <div><label>Покупець (назва/ПІБ)</label><input id="buyer_name" placeholder="ТОВ Приклад"></div>
+  <div><label>Валюта</label><select id="currency"><option>UAH</option><option>USD</option><option>EUR</option></select></div>
 </div>
 
-<table id="items">
-  <thead><tr>
-    <th>Найменування</th><th style="width:80px">К-сть</th><th style="width:80px">Од.</th><th style="width:120px">Ціна</th><th style="width:40px"></th>
-  </tr></thead>
-  <tbody></tbody>
-</table>
+<table id="items"><thead><tr>
+  <th>Найменування</th><th style="width:80px">К-сть</th><th style="width:80px">Од.</th><th style="width:120px">Ціна</th><th style="width:40px"></th>
+</tr></thead><tbody></tbody></table>
 
 <div class="btns">
   <button id="add">+ Додати позицію</button>
   <button id="save">Зберегти рахунок</button>
-  <button id="clear" class="secondary">Очистити форму</button>
 </div>
 
 <div id="result" class="hidden">
   <div class="btns">
     <button id="btnPdf">Завантажити PDF</button>
-    <button id="btnHtml" class="secondary">Поділитися (HTML-посилання)</button>
+    <button id="btnHtml" class="secondary">Поділитися (HTML)</button>
     <button id="btnNew" class="secondary">Новий</button>
   </div>
   <div id="toast" class="toast ok"></div>
 </div>
 
-<p class="muted">Ця сторінка — Telegram Mini App. API-адреса береться з параметра <code>?api=</code>.</p>
+<p class="muted">API береться з параметра <code>?api=</code>.</p>
 
 <script>
 (function(){
   const tg = window.Telegram?.WebApp; if(tg){ try{ tg.expand() }catch(e){} }
   const $ = s => document.querySelector(s);
-  const qs = new URLSearchParams(location.search);
-  const API = (qs.get('api')||'').replace(/\/$/,'');
-  function api(path){ return API + path }
-  function addRow(name='', qty='1', unit='se', price='0'){
+  const API = (new URLSearchParams(location.search).get('api')||'').replace(/\/$/,'');
+  const tbody = document.querySelector('#items tbody');
+  function addRow(n='Консультаційні послуги',q='1',u='se',p='1200'){
     const tr = document.createElement('tr');
-    tr.innerHTML=`
-      <td><input class="name" placeholder="Послуга" value="${name}"></td>
-      <td><input class="qty" type="number" step="0.01" value="${qty}"></td>
-      <td><input class="unit" value="${unit}"></td>
-      <td><input class="price" type="number" step="0.01" value="${price}"></td>
+    tr.innerHTML = `<td><input class="name" value="${n}"></td>
+      <td><input class="qty" type="number" step="0.01" value="${q}"></td>
+      <td><input class="unit" value="${u}"></td>
+      <td><input class="price" type="number" step="0.01" value="${p}"></td>
       <td><button class="secondary del">x</button></td>`;
-    tr.querySelector('.del').onclick=()=>tr.remove();
-    $('#items tbody').appendChild(tr);
+    tr.querySelector('.del').onclick = ()=>tr.remove();
+    tbody.appendChild(tr);
   }
-  $('#add').onclick=()=>addRow();
+  addRow(); addRow('Реклама','1','se','500');
+
   function collectItems(){
-    return [...document.querySelectorAll('#items tbody tr')].map(tr=>({
+    return [...tbody.querySelectorAll('tr')].map(tr=>({
       name: tr.querySelector('.name').value.trim(),
       qty:  tr.querySelector('.qty').value || '1',
       unit: tr.querySelector('.unit').value || 'se',
@@ -128,76 +82,29 @@ button.secondary{background:#eee;color:#222}
     $('#toast').textContent = msg;
   }
 
-  // --- продавець ---
-  const s_fields = ['name','tax','iban','bank','addr','email','phone','logo','stamp','sign'];
-  function lockSeller(lock){
-    ['s_name','s_tax','s_iban','s_bank','s_addr','s_email','s_phone','s_logo','s_stamp','s_sign']
-      .forEach(id=>{ $('#'+id).disabled = lock });
-  }
-  async function loadSeller(){
-    if(!API) return;
-    const r=await fetch(api('/api/seller')); const s=await r.json();
-    $('#s_name').value=s.name||''; $('#s_tax').value=s.tax_id||''; $('#s_iban').value=s.iban||'';
-    $('#s_bank').value=s.bank_name||''; $('#s_addr').value=s.address||'';
-    $('#s_email').value=s.email||''; $('#s_phone').value=s.phone||'';
-    $('#s_logo').value=s.logo_url||''; $('#s_stamp').value=s.stamp_url||''; $('#s_sign').value=s.sign_url||'';
-  }
-  async function saveSeller(){
-    const body={
-      name:$('#s_name').value, tax_id:$('#s_tax').value, iban:$('#s_iban').value,
-      bank_name:$('#s_bank').value, address:$('#s_addr').value,
-      email:$('#s_email').value, phone:$('#s_phone').value,
-      logo_url:$('#s_logo').value, stamp_url:$('#s_stamp').value, sign_url:$('#s_sign').value
-    };
-    const r=await fetch(api('/api/seller'),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    if(!r.ok) throw new Error('PUT /seller '+r.status);
-  }
-  $('#seller_edit').onclick=()=>lockSeller(false);
-  $('#seller_save').onclick=async()=>{ try{ await saveSeller(); lockSeller(true); setToast(true,'Профіль продавця збережено') }catch(e){ setToast(false,e.message) } };
-  async function uploadTo(field, file){
-    const fd=new FormData(); fd.append('file',file);
-    const r=await fetch(api('/api/upload'),{method:'POST',body:fd}); const j=await r.json();
-    if(j.ok){ $('#'+field).value=j.url; } else { throw new Error('upload failed'); }
-  }
-  $('#up_logo').onchange=e=> e.target.files[0] && uploadTo('s_logo', e.target.files[0]).catch(err=>setToast(false,err.message));
-  $('#up_stamp').onchange=e=> e.target.files[0] && uploadTo('s_stamp',e.target.files[0]).catch(err=>setToast(false,err.message));
-  $('#up_sign').onchange =e=> e.target.files[0] && uploadTo('s_sign', e.target.files[0]).catch(err=>setToast(false,err.message));
-
-  // --- інвойс ---
   $('#save').onclick = async ()=>{
     try{
       if(!API) throw new Error('Не задано ?api=');
-      const body={
-        invoice:{ currency: $('#currency').value },
-        buyer:{ name: $('#buyer_name').value.trim() },
-        items: collectItems()
-      };
-      const r=await fetch(api('/api/invoices'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      const body={ invoice:{ currency: $('#currency').value }, buyer:{ name: $('#buyer_name').value.trim() }, items: collectItems() };
+      const r = await fetch(API+'/api/invoices',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
       if(!r.ok) throw new Error('API '+r.status);
-      const res=await r.json();
-      $('#result').classList.remove('hidden');
+      const res = await r.json();
       setToast(true, `Збережено. № ${res.number}. Сума: ${res.total}`);
-      const addSkip = u => u+(u.includes('?')?'&':'?')+'ngrok-skip-browser-warning=1';
-      $('#btnHtml').onclick=()=> (tg?.openLink ? tg.openLink(addSkip(res.public_url)) : window.open(addSkip(res.public_url),'_blank'));
-      $('#btnPdf').onclick =()=> (tg?.openLink ? tg.openLink(addSkip(res.pdf_url))    : window.open(addSkip(res.pdf_url),'_blank'));
 
-      // повідомимо бота — він пришле PDF у чат
-      try{
-        tg?.sendData && tg.sendData(JSON.stringify({type:'invoice_created', id:res.id, number:res.number}));
-      }catch(_){}
+      // HTML відкриття
+      const addSkip = u => u + (u.includes('?')?'&':'?') + 'ngrok-skip-browser-warning=1';
+      $('#btnHtml').onclick = ()=> (tg?.openLink ? tg.openLink(addSkip(res.public_url)) : window.open(addSkip(res.public_url),'_blank'));
+
+      // PDF відкриття через проміжну сторінку API (більше не буде вітальної сторінки ngrok)
+      const openPdfUrl = res.pdf_open_url || addSkip(res.pdf_url);
+      $('#btnPdf').onclick = ()=> (tg?.openLink ? tg.openLink(openPdfUrl) : window.open(openPdfUrl,'_blank'));
+
+      $('#btnNew').onclick = ()=> location.reload();
+
+      // опц: повідомити бота
+      try{ tg?.sendData && tg.sendData(JSON.stringify({type:'invoice_created', id:res.id, number:res.number})); }catch(_){}
     }catch(e){ setToast(false,'Помилка збереження: '+e.message); }
   };
-
-  $('#btnNew').onclick = ()=>{
-    $('#buyer_name').value=''; $('#currency').value='UAH';
-    $('#items tbody').innerHTML=''; addRow('Консультаційні послуги','1','se','1200'); addRow('Реклама','1','se','500');
-    $('#result').classList.add('hidden'); $('#toast').textContent='';
-  };
-  $('#clear').onclick = ()=>{ $('#items tbody').innerHTML=''; addRow() };
-
-  // ініціалізація
-  lockSeller(true); addRow('Консультаційні послуги','1','se','1200'); addRow('Реклама','1','se','500');
-  if(API) loadSeller();
 })();
 </script>
 </body>
