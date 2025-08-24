@@ -2,19 +2,18 @@
 <html lang="uk">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>InvoUA — рахунок за 60 секунд (v2.2)</title>
   <style>
     :root { --gap: 10px; }
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; padding: 14px; }
+    body { font-family: system-ui, -apple-system, Arial, sans-serif; margin: 0; padding: 14px; }
     h1 { font-size: 20px; margin: 0 0 12px 0; }
-    h2 { font-size: 16px; margin: 16px 0 8px; }
+    h2 { font-size: 16px; margin: 14px 0 8px; }
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); }
     label { font-size:12px; color:#444; display:block; margin-bottom:4px;}
     input, select { width:100%; padding:8px; border:1px solid #ccc; border-radius:8px; }
     table { width:100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { border:1px solid #ddd; padding:8px; font-size:14px; vertical-align: top;}
+    th, td { border:1px solid #ddd; padding:8px; font-size:14px; }
     th { background:#f8f8f8; text-align:left; }
     .btns { margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; }
     button { padding:10px 14px; border:0; border-radius:999px; background:#0a84ff; color:#fff; font-weight:600; cursor:pointer; }
@@ -24,131 +23,88 @@
     .ok { color: #0a7d2f; }
     .err { color: #b00020; }
     .hidden { display:none; }
-    .card { border:1px solid #e5e5e5; border-radius:12px; padding:12px; }
-    .r { text-align:right; }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-    .row-actions { display:flex; gap:8px; align-items:center; }
   </style>
+  <!-- jsPDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
+<script src="./webapp_bridge.js"></script>
 <body>
   <h1>InvoUA — рахунок за 60 секунд <span style="color:#888;font-size:12px">/ v2.2</span></h1>
 
-  <!-- ПРОФІЛЬ ПРОДАВЦЯ -->
-  <div class="card" id="seller_card">
-    <div class="row-actions" style="justify-content:space-between;">
-      <h2 style="margin:0">Мій профіль продавця</h2>
-      <button id="saveSeller" class="secondary">Зберегти профіль</button>
+  <h2>Продавець</h2>
+  <div class="grid">
+    <div><label>Назва</label><input id="seller_name"></div>
+    <div><label>ЄДРПОУ/ІПН</label><input id="seller_tax_id"></div>
+    <div><label>IBAN</label><input id="seller_iban"></div>
+    <div><label>Банк</label><input id="seller_bank_name"></div>
+    <div><label>Адреса</label><input id="seller_address"></div>
+    <div><label>Email</label><input id="seller_email" type="email"></div>
+    <div><label>Телефон</label><input id="seller_phone"></div>
+    <div><label>Лого URL</label><input id="seller_logo"></div>
+    <div><label>Печатка URL</label><input id="seller_stamp"></div>
+    <div><label>Підпис URL</label><input id="seller_sign"></div>
+  </div>
+  <div class="btns">
+    <button id="save_seller" class="secondary">Зберегти продавця</button>
+  </div>
+
+  <h2>Рахунок</h2>
+  <div class="grid">
+    <div>
+      <label>Покупець (назва/ПІБ)</label>
+      <input id="buyer_name" placeholder="ТОВ Приклад">
     </div>
-    <div class="grid" style="margin-top:8px">
-      <div>
-        <label>Назва/ПІБ продавця</label>
-        <input id="seller_name" placeholder="ФОП Приклад">
-      </div>
-      <div>
-        <label>ЄДРПОУ/ІПН</label>
-        <input id="seller_tax" placeholder="0000000000">
-      </div>
-      <div>
-        <label>IBAN</label>
-        <input id="seller_iban" placeholder="UA...">
-      </div>
-      <div>
-        <label>Банк</label>
-        <input id="seller_bank" placeholder="Назва банку">
-      </div>
-      <div>
-        <label>Адреса</label>
-        <input id="seller_address" placeholder="м. Київ, ...">
-      </div>
-      <div>
-        <label>Email</label>
-        <input id="seller_email" placeholder="name@example.com">
-      </div>
-      <div>
-        <label>Телефон</label>
-        <input id="seller_phone" placeholder="+380...">
-      </div>
-      <div>
-        <label>Логотип (URL, опц.)</label>
-        <input id="seller_logo" placeholder="https://.../logo.png">
-      </div>
-      <div>
-        <label>Печатка (URL, опц.)</label>
-        <input id="seller_stamp" placeholder="https://.../stamp.png">
-      </div>
-      <div>
-        <label>Підпис (URL, опц.)</label>
-        <input id="seller_sign" placeholder="https://.../sign.png">
-      </div>
+    <div>
+      <label>Валюта</label>
+      <select id="currency">
+        <option>UAH</option><option>USD</option><option>EUR</option>
+      </select>
     </div>
   </div>
 
-  <!-- ІНВОЙС -->
-  <div class="card" style="margin-top:14px">
-    <h2>Реквізити рахунку</h2>
-    <div class="grid">
-      <div>
-        <label>Покупець (назва/ПІБ)</label>
-        <input id="buyer_name" placeholder="ТОВ Приклад">
-      </div>
-      <div>
-        <label>Валюта</label>
-        <select id="currency">
-          <option>UAH</option><option>USD</option><option>EUR</option>
-        </select>
-      </div>
-    </div>
+  <table id="items">
+    <thead>
+      <tr>
+        <th>Найменування</th><th style="width:80px">К-сть</th><th style="width:80px">Од.</th><th style="width:120px">Ціна</th><th style="width:40px"></th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
 
-    <table id="items">
-      <thead>
-        <tr>
-          <th>Найменування</th><th style="width:80px">К-сть</th><th style="width:80px">Од.</th><th style="width:120px">Ціна</th><th style="width:40px"></th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-
-    <div class="btns">
-      <button id="add">+ Додати позицію</button>
-      <button id="save">Зберегти рахунок</button>
-    </div>
-
-    <div class="muted" style="margin-top:8px">
-      Ця сторінка працює як Telegram Mini App. API-адреса береться з параметра <code>?api=</code>.
-    </div>
+  <div class="btns">
+    <button id="add">+ Додати позицію</button>
+    <button id="save">Зберегти рахунок</button>
   </div>
 
-  <!-- РЕЗУЛЬТАТ -->
-  <div id="result" class="hidden card" style="margin-top:14px">
+  <div id="result" class="hidden">
     <div class="btns">
-      <button id="btnPdf">Завантажити PDF</button>
-      <button id="btnHtml" class="secondary">Поділитися (HTML)</button>
+      <button id="btnHtml" class="secondary">Відкрити HTML</button>
+      <button id="btnPdfOpen">Відкрити PDF (сервер)</button>
+      <button id="btnPdfLocal" class="secondary">Завантажити PDF (локально)</button>
       <button id="btnNew" class="secondary">Новий</button>
     </div>
     <div id="toast" class="toast ok"></div>
-    <div id="dbg" class="muted mono" style="white-space:pre-wrap;margin-top:6px"></div>
   </div>
+
+  <p class="muted">API-адреса береться з параметра <code>?api=</code>. Якщо працюєш через ngrok — ми додаємо <code>ngrok-skip-browser-warning=1</code> автоматично.</p>
 
 <script>
 (function(){
   const tg = window.Telegram?.WebApp;
-  if (tg) { try{ tg.expand(); }catch(e){} }
+  if (tg) try { tg.expand(); } catch(e) {}
 
   const $ = s => document.querySelector(s);
   const qs = new URLSearchParams(location.search);
-  const API = (qs.get('api')||'').replace(/\/$/,''); // ВАЖЛИВО: мусить бути в URL!
+  const API = (qs.get('api') || '').replace(/\/$/,'');
+  const NGROK_Q = 'ngrok-skip-browser-warning=1';
 
-  // ---- UI helpers ----
-  function showToast(ok, msg){
-    const t = $('#toast'); const r = $('#result');
-    r.classList.remove('hidden');
-    t.classList.toggle('ok', !!ok);
-    t.classList.toggle('err', !ok);
-    t.textContent = msg;
+  function apiUrl(path){
+    if(!API) return path;
+    const sep = path.includes('?') ? '&' : '?';
+    return `${API}${path}${sep}${NGROK_Q}`;
   }
-  function dbg(obj){ $('#dbg').textContent = typeof obj==='string'? obj : JSON.stringify(obj,null,2); }
 
-  // ---- ITEMS table ----
+  // ----- Items table -----
   const tbody = $('#items tbody');
   function addRow(name='', qty='1', unit='se', price='0'){
     const tr = document.createElement('tr');
@@ -162,8 +118,9 @@
     tbody.appendChild(tr);
   }
   $('#add').onclick = () => addRow();
-  // стартові позиції
+  // стартові приклади
   addRow('Консультаційні послуги', '1', 'se', '1200');
+  addRow('Реклама', '1', 'se', '500');
 
   function collectItems(){
     return [...tbody.querySelectorAll('tr')].map(tr => ({
@@ -174,106 +131,229 @@
     })).filter(it => it.name);
   }
 
-  // ---- SELLER profile load/save ----
-  function getSellerFromUI(){
-    return {
+  // ----- Seller load/save -----
+  async function loadSeller(){
+    if(!API) return;
+    try{
+      const r = await fetch(apiUrl('/api/seller'));
+      if(!r.ok) return;
+      const s = await r.json();
+      $('#seller_name').value = s.name || '';
+      $('#seller_tax_id').value = s.tax_id || '';
+      $('#seller_iban').value = s.iban || '';
+      $('#seller_bank_name').value = s.bank_name || '';
+      $('#seller_address').value = s.address || '';
+      $('#seller_email').value = s.email || '';
+      $('#seller_phone').value = s.phone || '';
+      $('#seller_logo').value = s.logo_url || '';
+      $('#seller_stamp').value = s.stamp_url || '';
+      $('#seller_sign').value = s.sign_url || '';
+    }catch(e){}
+  }
+  $('#save_seller').onclick = async () => {
+    if(!API){ alert('Не задано ?api= у URL'); return; }
+    const seller = {
       name: $('#seller_name').value.trim(),
-      tax_id: $('#seller_tax').value.trim(),
+      tax_id: $('#seller_tax_id').value.trim(),
       iban: $('#seller_iban').value.trim(),
-      bank_name: $('#seller_bank').value.trim(),
+      bank_name: $('#seller_bank_name').value.trim(),
       address: $('#seller_address').value.trim(),
       email: $('#seller_email').value.trim(),
       phone: $('#seller_phone').value.trim(),
       logo_url: $('#seller_logo').value.trim(),
       stamp_url: $('#seller_stamp').value.trim(),
-      sign_url: $('#seller_sign').value.trim()
+      sign_url: $('#seller_sign').value.trim(),
     };
-  }
-  async function loadSeller(){
-    if(!API) return;
-    try{
-      const r = await fetch(API + '/api/seller', {headers:{'ngrok-skip-browser-warning':'1'}});
-      if(!r.ok) throw new Error('GET /seller ' + r.status);
-      const s = await r.json();
-      $('#seller_name').value = s.name||'';
-      $('#seller_tax').value = s.tax_id||'';
-      $('#seller_iban').value = s.iban||'';
-      $('#seller_bank').value = s.bank_name||'';
-      $('#seller_address').value = s.address||'';
-      $('#seller_email').value = s.email||'';
-      $('#seller_phone').value = s.phone||'';
-      $('#seller_logo').value = s.logo_url||'';
-      $('#seller_stamp').value = s.stamp_url||'';
-      $('#seller_sign').value = s.sign_url||'';
-    }catch(e){ /* тихо ідемо далі */ }
-  }
-  async function saveSellerProfile(){
-    if(!API){ showToast(false,'Не задано ?api= в URL'); return; }
-    try{
-      const r = await fetch(API + '/api/seller', {
-        method:'PUT',
-        headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'1'},
-        body: JSON.stringify(getSellerFromUI())
-      });
-      if(!r.ok) throw new Error('PUT /seller ' + r.status);
-      showToast(true, 'Профіль продавця збережено');
-    }catch(e){ showToast(false, 'Помилка збереження профілю: ' + e.message); }
-  }
-  $('#saveSeller').onclick = saveSellerProfile;
+    const r = await fetch(apiUrl('/api/seller'), {
+      method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(seller)
+    });
+    const ok = r.ok;
+    const t = $('#toast'); t.classList.remove('hidden'); t.classList.toggle('ok',ok); t.classList.toggle('err',!ok);
+    t.textContent = ok ? 'Профіль продавця збережено' : 'Помилка збереження продавця';
+  };
 
-  // ---- SAVE invoice ----
+  // ----- Save invoice -----
   async function saveInvoice(){
     if(!API){ throw new Error('Не задано ?api= у URL'); }
+    const seller = {
+      name: $('#seller_name').value.trim(),
+      tax_id: $('#seller_tax_id').value.trim(),
+      iban: $('#seller_iban').value.trim(),
+      bank_name: $('#seller_bank_name').value.trim(),
+      address: $('#seller_address').value.trim(),
+      email: $('#seller_email').value.trim(),
+      phone: $('#seller_phone').value.trim(),
+      logo_url: $('#seller_logo').value.trim(),
+      stamp_url: $('#seller_stamp').value.trim(),
+      sign_url: $('#seller_sign').value.trim(),
+    };
     const payload = {
       invoice: { currency: $('#currency').value },
       buyer:   { name: $('#buyer_name').value.trim() },
-      seller:  getSellerFromUI(),      // ← ЯВНО включаємо продавця
+      seller:  seller,
       items:   collectItems()
     };
-    const r = await fetch(API + '/api/invoices', {
+    const r = await fetch(apiUrl('/api/invoices'), {
       method:'POST',
-      headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'1'},
+      headers:{'Content-Type':'application/json'},
       body: JSON.stringify(payload)
     });
     if(!r.ok){
-      const txt = await r.text().catch(()=> '');
-      throw new Error('API ' + r.status + (txt? (': '+txt):''));
+      let msg = 'API error ' + r.status;
+      try{ const j = await r.json(); if (j.detail) msg = j.detail; }catch(_){}
+      throw new Error(msg);
     }
     return await r.json();
   }
 
-  // ---- Actions ----
-  $('#save').onclick = async (ev) => {
-    ev.target.disabled = true;
+  async function getInvoiceJson(id){
+    const r = await fetch(apiUrl(`/api/invoices/${id}`));
+    if(!r.ok) throw new Error('GET JSON ' + r.status);
+    return await r.json();
+  }
+
+  function money(x){ return (Number(x)||0).toFixed(2); }
+
+  // --- jsPDF шрифти ---
+  function ab2b64(buf){
+    let binary = ''; const bytes = new Uint8Array(buf);
+    const chunk = 0x8000;
+    for (let i=0; i<bytes.length; i+=chunk){
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i+chunk));
+    }
+    return btoa(binary);
+  }
+  async function loadFontsInto(pdf){
+    const base = location.origin + location.pathname.replace(/\/[^\/]*$/, '') + '/fonts';
+    const files = [
+      {file:'DejaVuSans.ttf', name:'DejaVu', style:'normal'},
+      {file:'DejaVuSans-Bold.ttf', name:'DejaVu', style:'bold'}
+    ];
+    for (const f of files){
+      const res = await fetch(`${base}/${f.file}`, {cache:'reload'});
+      if (!res.ok) throw new Error(`Font ${f.file} ${res.status}`);
+      const buf = await res.arrayBuffer();
+      pdf.addFileToVFS(f.file, ab2b64(buf));
+      pdf.addFont(f.file, f.name, f.style);
+    }
+    pdf.setFont('DejaVu','normal');
+  }
+  function renderPdfFromJson(doc, pdf){
+    const M = 12, W = pdf.internal.pageSize.getWidth() - M*2;
+    const cur = doc.invoice.currency || 'UAH';
+    const s = doc.seller || {}, b = doc.buyer || {};
+    let y = 18;
+
+    pdf.setFont('DejaVu','bold'); pdf.setFontSize(16);
+    pdf.text(`Рахунок ${doc.invoice.number || ''}`, M, y); y += 6;
+
+    pdf.setFont('DejaVu','normal'); pdf.setFontSize(10);
+    pdf.text(`Дата: ${doc.invoice.issue_date || ''}`, M, y);
+    if (doc.invoice.due_date) pdf.text(`Оплатити до: ${doc.invoice.due_date}`, M+60, y);
+    y += 10;
+
+    pdf.setFont('DejaVu','bold'); pdf.text('Продавець', M, y);
+    pdf.setFont('DejaVu','normal');
+    const sellerLines = [s.name, s.tax_id && `ЄДРПОУ/ІПН: ${s.tax_id}`, s.iban && `IBAN: ${s.iban}`, s.address].filter(Boolean);
+    sellerLines.forEach((t,i)=> pdf.text(String(t), M, y+6+i*5));
+
+    pdf.setFont('DejaVu','bold'); pdf.text('Покупець', M+W/2, y);
+    pdf.setFont('DejaVu','normal');
+    const buyerLines = [b.name, b.tax_id && `ЄДРПОУ/ІПН: ${b.tax_id}`, b.iban && `IBAN: ${b.iban}`, b.address].filter(Boolean);
+    buyerLines.forEach((t,i)=> pdf.text(String(t), M+W/2, y+6+i*5));
+
+    y += 6 + Math.max(sellerLines.length, buyerLines.length)*5 + 8;
+
+    const cols = [
+      { key:'name',  title:'Найменування', w:86 },
+      { key:'qty',   title:'К-сть',         w:20 },
+      { key:'unit',  title:'Од.',           w:20 },
+      { key:'price', title:'Ціна',          w:30 },
+      { key:'line_total', title:'Сума',     w:30 },
+    ];
+    pdf.setFont('DejaVu','bold');
+    let x = M; cols.forEach(c=>{ pdf.text(c.title, x+1, y); x += c.w; });
+    y += 5; pdf.setFont('DejaVu','normal');
+
+    (doc.items||[]).forEach(it=>{
+      x = M;
+      const row = [
+        String(it.name||''),
+        String(it.qty||''),
+        String(it.unit||''),
+        money(it.price||'0'),
+        money(it.line_total || (Number(it.qty||1)*Number(it.price||0)))
+      ];
+      row.forEach((v,i)=>{
+        const cw = cols[i].w;
+        const lines = pdf.splitTextToSize(v, cw-2);
+        lines.forEach((ln,j)=> pdf.text(ln, x+1, y + j*5));
+        y += (lines.length-1)*5;
+        x += cw;
+      });
+      y += 6;
+      if (y > 280){ pdf.addPage(); y = 20; }
+    });
+
+    y += 2;
+    pdf.text(`Разом без ПДВ: ${money(doc.invoice.subtotal)} ${cur}`, M+W/2, y); y += 6;
+    pdf.text(`ПДВ: ${money(doc.invoice.tax_total)} ${cur}`, M+W/2, y); y += 6;
+    pdf.setFont('DejaVu','bold');
+    pdf.text(`До оплати: ${money(doc.invoice.total)} ${cur}`, M+W/2, y); y += 8;
+    pdf.setFont('DejaVu','normal');
+
+    if (doc.invoice.notes){
+      pdf.text('Примітки:', M, y); y += 5;
+      pdf.text(pdf.splitTextToSize(String(doc.invoice.notes), W), M, y);
+    }
+  }
+
+  // ----- UI -----
+  loadSeller();
+
+  $('#save').onclick = async () => {
+    const t = $('#toast'); t.classList.add('hidden');
     try{
       const res = await saveInvoice();
-      showToast(true, `Збережено. № ${res.number}. Сума: ${res.total}`);
-      dbg(res);
+      $('#result').classList.remove('hidden');
+      t.classList.remove('err'); t.classList.add('ok'); t.classList.remove('hidden');
+      t.textContent = `Збережено. № ${res.number}. Сума: ${res.total}`;
 
-      // HTML share
       $('#btnHtml').onclick = () => {
-        const url = (res.public_url || (API + '/api/invoices/'+res.id+'/html')) + ( (res.public_url||'').includes('?') ? '&' : '?' ) + 'ngrok-skip-browser-warning=1';
-        (window.Telegram?.WebApp?.openLink ? window.Telegram.WebApp.openLink(url) : window.open(url,'_blank'));
+        const url = res.public_url.includes('?') ? res.public_url : (res.public_url + '?'+NGROK_Q);
+        (window.Telegram?.WebApp?.openLink ? window.Telegram.WebApp.openLink(url) : window.open(url, '_blank'));
       };
-
-      // PDF open (через проміжну сторінку, щоб обійти welcome)
-      $('#btnPdf').onclick  = () => {
-        const url = (res.pdf_open_url || (API + '/api/invoices/'+res.id+'/pdf_page')) + '?ngrok-skip-browser-warning=1';
-        (window.Telegram?.WebApp?.openLink ? window.Telegram.WebApp.openLink(url) : window.open(url,'_blank'));
+      $('#btnPdfOpen').onclick = () => {
+        const url = res.pdf_open_url || res.pdf_url;
+        (window.Telegram?.WebApp?.openLink ? window.Telegram.WebApp.openLink(url) : window.open(url, '_blank'));
       };
+      $('#btnPdfLocal').onclick  = async () => {
+        try {
+          const id = res.id || res.invoice_id;
+          const doc = await getInvoiceJson(id);
+          const { jsPDF } = window.jspdf || {};
+          if(!jsPDF) throw new Error('jsPDF не завантажився');
+          const pdf = new jsPDF('p','mm','a4');
+          await loadFontsInto(pdf);
+          renderPdfFromJson(doc, pdf);
+          const a = document.createElement('a');
+          a.href = pdf.output('bloburl');
+          a.download = (doc.invoice.number || 'invoice') + '.pdf';
+          document.body.appendChild(a); a.click();
+          setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+        } catch (e) {
+          t.classList.remove('ok'); t.classList.add('err'); t.classList.remove('hidden');
+          t.textContent = 'Помилка локального PDF: ' + e.message;
+        }
+      };
+      $('#btnNew').onclick  = () => location.reload();
 
-      // Новий
-      $('#btnNew').onclick  = () => location.href = location.pathname + '?api=' + encodeURIComponent(API) + '&v=' + Date.now();
     }catch(e){
-      showToast(false, 'Помилка збереження: ' + e.message);
-      dbg(e && e.stack ? e.stack : String(e));
-    }finally{
-      ev.target.disabled = false;
+      $('#result').classList.remove('hidden');
+      t.classList.remove('ok'); t.classList.add('err'); t.classList.remove('hidden');
+      t.textContent = 'Помилка збереження: ' + (e.message || e);
     }
   };
-
-  // стартове завантаження профілю
-  loadSeller();
 })();
 </script>
 </body>
