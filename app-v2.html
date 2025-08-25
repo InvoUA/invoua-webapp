@@ -224,19 +224,24 @@
     return btoa(binary);
   }
   async function loadFontsInto(pdf){
-    const base = location.origin + location.pathname.replace(/\/[^\/]*$/, '') + '/fonts';
-    const files = [
-      {file:'DejaVuSans.ttf', name:'DejaVu', style:'normal'},
-      {file:'DejaVuSans-Bold.ttf', name:'DejaVu', style:'bold'}
-    ];
-    for (const f of files){
-      const res = await fetch(`${base}/${f.file}`, {cache:'reload'});
-      if (!res.ok) throw new Error(`Font ${f.file} ${res.status}`);
-      const buf = await res.arrayBuffer();
-      pdf.addFileToVFS(f.file, ab2b64(buf));
-      pdf.addFont(f.file, f.name, f.style);
+    try{
+      const base = location.origin + location.pathname.replace(/\/[^\/]*$/, '') + '/fonts';
+      const files = [
+        {file:'DejaVuSans.ttf', name:'DejaVu', style:'normal'},
+        {file:'DejaVuSans-Bold.ttf', name:'DejaVu', style:'bold'}
+      ];
+      for (const f of files){
+        const res = await fetch(`${base}/${f.file}`, {cache:'reload'});
+        if (!res.ok) throw new Error(`Font ${f.file} ${res.status}`);
+        const buf = await res.arrayBuffer();
+        pdf.addFileToVFS(f.file, ab2b64(buf));
+        pdf.addFont(f.file, f.name, f.style);
+      }
+      pdf.setFont('DejaVu','normal');
+    }catch(e){
+      console.warn('DejaVu fonts not loaded, fallback to built-in fonts:', e);
+      try { pdf.setFont('helvetica','normal'); } catch(_){}
     }
-    pdf.setFont('DejaVu','normal');
   }
   function renderPdfFromJson(doc, pdf){
     const M = 12, W = pdf.internal.pageSize.getWidth() - M*2;
