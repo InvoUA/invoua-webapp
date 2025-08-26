@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="uk">
+<html lang="ук">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -29,6 +29,42 @@
 </head>
 <script src="./webapp_bridge.js"></script>
 <body>
+
+  <!-- Wipe mode: запуск через ?wipe=1 або ?wipe_fonts=1 -->
+  <script>
+  // ---- Wipe mode ----
+  (async function wipeIfAsked(){
+    const qs = new URLSearchParams(location.search);
+    if (!qs.has('wipe') && !qs.has('wipe_fonts')) return;
+
+    try {
+      // Cache Storage
+      if (window.caches && caches.keys) {
+        const names = await caches.keys();
+        await Promise.all(names.map(n => caches.delete(n).catch(()=>{})));
+      }
+      // IndexedDB (де підтримується)
+      if (indexedDB && indexedDB.databases) {
+        const dbs = await indexedDB.databases();
+        await Promise.all((dbs||[]).map(d => new Promise(res=>{
+          const req = indexedDB.deleteDatabase(d.name); req.onsuccess = req.onerror = req.onblocked = ()=>res();
+        })));
+      }
+      // Web Storage
+      try { localStorage.clear(); } catch(_){}
+      try { sessionStorage.clear(); } catch(_){}
+    } catch(e) {
+      console.warn('Wipe error:', e);
+    }
+
+    // Приберемо прапорець і перезавантажимо з версією
+    qs.delete('wipe');
+    const v = Date.now();
+    if (!qs.has('v')) qs.set('v', v);
+    location.replace(location.pathname + '?' + qs.toString());
+  })();
+  </script>
+
   <h1>InvoUA — рахунок за 60 секунд <span style="color:#888;font-size:12px">/ v2.2</span></h1>
 
   <h2>Продавець</h2>
