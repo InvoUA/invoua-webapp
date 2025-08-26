@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="ук">
+<html lang="uk">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>InvoUA — рахунок за 60 секунд (v2.2)</title>
+  <title>InvoUA — рахунок за 60 секунд (v2.3)</title>
   <style>
     :root { --gap: 10px; }
     body { font-family: system-ui, -apple-system, Arial, sans-serif; margin: 0; padding: 14px; }
@@ -27,6 +27,7 @@
   <!-- jsPDF -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
+<!-- (не обов'язково) міст для TG WebApp -->
 <script src="./webapp_bridge.js"></script>
 <body>
 
@@ -65,7 +66,7 @@
   })();
   </script>
 
-  <h1>InvoUA — рахунок за 60 секунд <span style="color:#888;font-size:12px">/ v2.2</span></h1>
+  <h1>InvoUA — рахунок за 60 секунд <span style="color:#888;font-size:12px">/ v2.3</span></h1>
 
   <h2>Продавець</h2>
   <div class="grid">
@@ -262,12 +263,13 @@
   async function loadFontsInto(pdf){
     try{
       const base = location.origin + location.pathname.replace(/\/[^\/]*$/, '') + '/fonts';
+      const v = Date.now(); // анти-кеш
       const files = [
-        {file:'DejaVuSans.ttf', name:'DejaVu', style:'normal'},
+        {file:'DejaVuSans.ttf',      name:'DejaVu', style:'normal'},
         {file:'DejaVuSans-Bold.ttf', name:'DejaVu', style:'bold'}
       ];
       for (const f of files){
-        const res = await fetch(`${base}/${f.file}`, {cache:'reload'});
+        const res = await fetch(`${base}/${f.file}?v=${v}`, {cache:'reload'});
         if (!res.ok) throw new Error(`Font ${f.file} ${res.status}`);
         const buf = await res.arrayBuffer();
         pdf.addFileToVFS(f.file, ab2b64(buf));
@@ -361,30 +363,32 @@
       t.textContent = `Збережено. № ${res.number}. Сума: ${res.total}`;
 
       $('#btnHtml').onclick = () => {
-        const url = res.public_url.includes('?') ? res.public_url : (res.public_url + '?'+NGROK_Q);
+        let url = res.public_url || '';
+        if (url && !/ngrok-skip-browser-warning=1/.test(url)) {
+          url += (url.includes('?') ? '&' : '?') + NGROK_Q;
+        }
         (window.Telegram?.WebApp?.openLink ? window.Telegram.WebApp.openLink(url) : window.open(url, '_blank'));
       };
       $('#btnPdfOpen').onclick = () => {
-        const url = res.pdf_open_url || res.pdf_url;
+        let url = res.pdf_open_url || res.pdf_url || '';
+        if (url && !/ngrok-skip-browser-warning=1/.test(url)) {
+          url += (url.includes('?') ? '&' : '?') + NGROK_Q;
+        }
         (window.Telegram?.WebApp?.openLink ? window.Telegram.WebApp.openLink(url) : window.open(url, '_blank'));
       };
       $('#btnPdfLocal').onclick  = async () => {
         try {
-          const id = res.id || res.invoice_id;
+          const id  = res.id || res.invoice_id;
           const doc = await getInvoiceJson(id);
           const { jsPDF } = window.jspdf || {};
           if(!jsPDF) throw new Error('jsPDF не завантажився');
           const pdf = new jsPDF('p','mm','a4');
           await loadFontsInto(pdf);
           renderPdfFromJson(doc, pdf);
-          const a = document.createElement('a');
-          a.href = pdf.output('bloburl');
-          a.download = (doc.invoice.number || 'invoice') + '.pdf';
-          document.body.appendChild(a); a.click();
-          setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+          pdf.save((doc.invoice.number || 'invoice') + '.pdf'); // стабільніше за blob: у WKWebView
         } catch (e) {
           t.classList.remove('ok'); t.classList.add('err'); t.classList.remove('hidden');
-          t.textContent = 'Помилка локального PDF: ' + e.message;
+          t.textContent = 'Помилка локального PDF: ' + (e.message || e);
         }
       };
       $('#btnNew').onclick  = () => location.reload();
