@@ -4,266 +4,287 @@
   <meta charset="utf-8">
   <title>InvoUA — рахунок за 60 секунд</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-
-  <!-- jsPDF -->
-  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 12px 10px 48px; }
-    h1 { font-size: 18px; margin: 6px 0 12px; }
-    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
-    label { font-size: 12px; color: #333; }
-    input, select { width: 100%; padding: 6px 8px; box-sizing: border-box; }
-    .tbl { width: 100%; border-collapse: collapse; margin-top: 8px; }
-    .tbl th, .tbl td { border: 1px solid #ddd; padding: 6px; }
-    .btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-    button { padding: 8px 12px; border: 1px solid #ccc; background: #f7f7f7; border-radius: 6px; cursor: pointer; }
-    .muted { color: #777; font-size: 12px; margin-top: 8px; }
-    .error { color: #b00020; }
-    .ok { color: #0a7a0a; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; padding:14px; }
+    .row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    label { font-size:12px; color:#444; display:block; margin-top:10px; }
+    input, select { width:100%; padding:7px 9px; border:1px solid #ddd; border-radius:6px; }
+    table { width:100%; border-collapse: collapse; margin-top:10px; }
+    th, td { border:1px solid #e6e6e6; padding:6px; }
+    .actions { display:flex; gap:10px; margin:10px 0; flex-wrap:wrap; }
+    button { padding:8px 12px; border:0; border-radius:18px; background:#1971ff; color:#fff; cursor:pointer; }
+    button.secondary { background:#eee; color:#333; }
+    .muted { color:#666; font-size:12px; }
+    .error { color:#b00020; margin-top:10px; }
   </style>
-
-  <script>
-  // ---- Wipe mode ----
-  (async function wipeIfAsked(){
-    const qs = new URLSearchParams(location.search);
-    if (!qs.has('wipe') && !qs.has('wipe_fonts')) return;
-
-    try {
-      if (window.caches && caches.keys) {
-        const names = await caches.keys();
-        await Promise.all(names.map(n => caches.delete(n).catch(()=>{})));
-      }
-      if (indexedDB && indexedDB.databases) {
-        const dbs = await indexedDB.databases();
-        await Promise.all((dbs||[]).map(d => new Promise(res=>{
-          const req = indexedDB.deleteDatabase(d.name); req.onsuccess = req.onerror = req.onblocked = ()=>res();
-        })));
-      }
-      try { localStorage.clear(); } catch(_){}
-      try { sessionStorage.clear(); } catch(_){}
-    } catch(e) { console.warn('Wipe error:', e); }
-
-    qs.delete('wipe'); const v = Date.now();
-    if (!qs.has('v')) qs.set('v', v);
-    location.replace(location.pathname + '?' + qs.toString());
-  })();
-
-  // ---- Globals ----
-  const Q = new URLSearchParams(location.search);
-  const API_BASE = (Q.get('api') || '').trim();
-  function addSkip(u){ return u + (u.includes('?') ? '&' : '?') + 'ngrok-skip-browser-warning=1'; }
-  function apiUrl(path){ if(!API_BASE) throw new Error("Не задано ?api= у URL"); return addSkip(API_BASE.replace(/\/$/,'') + path); }
-  function $id(id){ return document.getElementById(id); }
-
-  let lastCreate = null;
-  let FONTS_LOADED = false;
-
-  async function loadFontsOnce(){
-    if (FONTS_LOADED) return;
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF();
-
-    // витягуємо ttf з того ж репо (поруч з app-v2.html)
-    async function fetchBin(u){
-      const r = await fetch(u, { mode: 'cors', cache: 'no-cache' });
-      if(!r.ok) throw new Error("fonts fetch failed: " + u);
-      const ab = await r.arrayBuffer();
-      return btoa(String.fromCharCode(...new Uint8Array(ab)));
-    }
-    const regular = await fetchBin('./fonts/DejaVuSans.ttf');
-    const bold = await fetchBin('./fonts/DejaVuSans-Bold.ttf');
-
-    pdf.addFileToVFS('DejaVuSans.ttf', regular);
-    pdf.addFileToVFS('DejaVuSans-Bold.ttf', bold);
-    pdf.addFont('DejaVuSans.ttf', 'DejaVuSans', 'normal');
-    pdf.addFont('DejaVuSans-Bold.ttf', 'DejaVuSans-Bold', 'normal');
-    FONTS_LOADED = true;
-  }
-
-  function uiError(msg){
-    const el = $id('status'); el.className = 'muted error'; el.textContent = msg;
-  }
-  function uiOk(msg){
-    const el = $id('status'); el.className = 'muted ok'; el.textContent = msg;
-  }
-
-  async function loadSeller(){
-    try{
-      const r = await fetch(apiUrl('/api/seller'));
-      if(!r.ok) throw new Error('SELLER HTTP '+r.status);
-      const s = await r.json();
-      for (const k of ['name','iban','tax_id','address','email','phone','logo_url','stamp_url','sign_url']){
-        $id('s_'+k).value = s?.[k] || '';
-      }
-      uiOk('Профіль продавця завантажено');
-    }catch(e){ uiError('Помилка завантаження продавця: '+e.message); }
-  }
-  async function saveSeller(){
-    try{
-      const s = {};
-      for (const k of ['name','iban','tax_id','address','email','phone','logo_url','stamp_url','sign_url']){
-        s[k] = $id('s_'+k).value.trim();
-      }
-      const r = await fetch(apiUrl('/api/seller'), {method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(s)});
-      if(!r.ok) throw new Error('SELLER HTTP '+r.status);
-      const j = await r.json();
-      if(!j.ok) throw new Error('SELLER RESP');
-      uiOk('Збережено продавця');
-    }catch(e){ uiError('Помилка збереження продавця: '+e.message); }
-  }
-
-  function collectDoc(){
-    const seller = {};
-    for (const k of ['name','iban','tax_id','address','email','phone','logo_url','stamp_url','sign_url']){
-      seller[k] = $id('s_'+k).value.trim();
-    }
-    const buyer = { name: $id('b_name').value.trim(), address: '', email:'', phone:'' };
-    const currency = $id('currency').value;
-    const rows = [...document.querySelectorAll('#items tbody tr')].map(tr => {
-      return {
-        name: tr.querySelector('.nm').value.trim(),
-        qty: tr.querySelector('.qty').value || 1,
-        unit: tr.querySelector('.unit').value || '',
-        price: tr.querySelector('.price').value || 0
-      }
-    });
-    return {
-      invoice: { currency },
-      seller, buyer, items: rows
-    };
-  }
-
-  async function createInvoice(){
-    try{
-      const body = collectDoc();
-      const r = await fetch(apiUrl('/api/invoices'), {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
-      const txt = await r.text();
-      let j;
-      try{ j = JSON.parse(txt) }catch(_){
-        throw new Error('API повернуло не-JSON (ймовірно ngrok splash / невірний BASE_URL).');
-      }
-      if(!r.ok || !j.ok) throw new Error('API create failed');
-      lastCreate = j;
-      uiOk('Інвойс створено: '+j.number);
-      return j;
-    }catch(e){
-      uiError('Помилка збереження: '+e.message);
-      throw e;
-    }
-  }
-
-  async function openHTML(){
-    const j = lastCreate || await createInvoice();
-    window.open(j.public_url, '_blank');
-  }
-
-  async function openPDFServer(){
-    const j = lastCreate || await createInvoice();
-    window.open(j.pdf_open_url, '_blank');
-  }
-
-  async function downloadPDFLocal(){
-    const j = lastCreate || await createInvoice();
-
-    await loadFontsOnce();
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    doc.setFont('DejaVuSans-Bold'); doc.setFontSize(16);
-    doc.text(`Рахунок #${j.number}`, 14, 18);
-    doc.setFont('DejaVuSans'); doc.setFontSize(11);
-    doc.text(`Продавець: ${(j.doc?.seller?.name||'')}`, 14, 26);
-    doc.text(`Покупець: ${(j.doc?.buyer?.name||'')}`, 14, 32);
-
-    let y = 42;
-    doc.setFont('DejaVuSans-Bold'); doc.text('Найменування', 14, y); doc.text('Сума', 170, y, {align:'right'});
-    doc.setFont('DejaVuSans'); y+=6;
-    (j.doc?.items||[]).forEach(it=>{
-      doc.text((it.name||''), 14, y);
-      doc.text(`${it.line_total||''} ${(j.doc?.invoice?.currency||'')}`, 170, y, {align:'right'});
-      y+=6;
-    });
-    y+=4; doc.setFont('DejaVuSans-Bold');
-    doc.text(`До оплати: ${j.doc?.invoice?.total||''} ${j.doc?.invoice?.currency||''}`, 170, y, {align:'right'});
-
-    doc.save(`Invoice-${j.number}.pdf`);
-  }
-
-  function addRow(name='', qty=1, unit='se', price='1200'){
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td><input class="nm" value="${name}"></td>
-      <td><input class="qty" type="number" step="0.001" value="${qty}"></td>
-      <td><input class="unit" value="${unit}"></td>
-      <td><input class="price" type="number" step="0.01" value="${price}"></td>
-      <td><button type="button" onclick="this.closest('tr').remove()">x</button></td>
-    `;
-    document.querySelector('#items tbody').appendChild(tr);
-  }
-
-  function newForm(){
-    document.querySelector('#items tbody').innerHTML = '';
-    addRow('', 1, 'se', '0');
-    lastCreate = null;
-    loadSeller();
-  }
-
-  window.addEventListener('load', ()=>{
-    if(!API_BASE){
-      uiError('Не задано ?api= у URL — додай параметр, напр.: ?api=https://<твій>.ngrok-free.app');
-    }
-    addRow('Консультаційні послуги', 1, 'se', '1200');
-    addRow('Реклама', 1, 'se', '500');
-    loadSeller().catch(()=>{});
-  });
-  </script>
 </head>
 <body>
-  <h1>InvoUA — рахунок за 60 секунд <small style="color:#777;font-weight:400">/ v2.3</small></h1>
 
-  <div class="row" style="grid-template-columns: 1fr 1fr;">
+<h1>InvoUA — рахунок за 60 секунд <small style="color:#888; font-size:12px;">/ v2.3</small></h1>
+
+<!-- ───────────────────────────────────────── Продавець ───────────────────── -->
+<section>
+  <h3>Продавець</h3>
+  <div class="row">
     <div>
-      <label>Назва<input id="s_name"></label>
-      <label>IBAN<input id="s_iban"></label>
-      <label>Адреса<input id="s_address"></label>
-      <label>Телефон<input id="s_phone"></label>
-      <label>Печатка URL<input id="s_stamp_url"></label>
-      <button onclick="saveSeller()">Зберегти продавця</button>
+      <label>Назва <input id="s_name"></label>
+      <label>IBAN <input id="s_iban"></label>
+      <label>Адреса <input id="s_addr"></label>
+      <label>Телефон <input id="s_phone"></label>
+      <label>Печатка URL <input id="s_stamp"></label>
     </div>
     <div>
-      <label>ЄДРПОУ/ІПН<input id="s_tax_id"></label>
-      <label>Банк<input id="s_bank"></label>
-      <label>Email<input id="s_email"></label>
-      <label>Лого URL<input id="s_logo_url"></label>
-      <label>Підпис URL<input id="s_sign_url"></label>
+      <label>ЄДРПОУ/ІПН <input id="s_tax"></label>
+      <label>Банк <input id="s_bank"></label>
+      <label>Email <input id="s_email"></label>
+      <label>Лого URL <input id="s_logo"></label>
+      <label>Підпис URL <input id="s_sign"></label>
     </div>
   </div>
+  <div class="actions"><button id="btnSaveSeller" class="secondary">Зберегти продавця</button></div>
+</section>
 
-  <div style="margin-top:12px">
-    <label>Покупець (назва/ПІБ)<input id="b_name"></label>
+<!-- ───────────────────────────────────────── Рахунок ──────────────────────── -->
+<section>
+  <h3>Рахунок</h3>
+  <div class="row">
+    <label>Покупець (назва/ПІБ) <input id="b_name"></label>
     <label>Валюта
-      <select id="currency">
-        <option value="UAH" selected>UAH</option>
-        <option value="USD">USD</option>
-        <option value="EUR">EUR</option>
+      <select id="inv_curr">
+        <option>UAH</option>
+        <option>USD</option>
+        <option>EUR</option>
       </select>
     </label>
   </div>
 
-  <table id="items" class="tbl">
-    <thead><tr><th>Найменування</th><th>К-сть</th><th>Од.</th><th>Ціна</th><th></th></tr></thead>
+  <table id="tbl">
+    <thead>
+      <tr><th>Найменування</th><th style="width:80px">К-сть</th><th style="width:70px">Од.</th><th style="width:140px">Ціна</th><th style="width:40px"></th></tr>
+    </thead>
     <tbody></tbody>
   </table>
-  <div class="btns">
-    <button onclick="addRow('',1,'se','0')">+ Додати позицію</button>
-    <button onclick="createInvoice()">Зберегти рахунок</button>
-    <button onclick="openHTML()">Відкрити HTML</button>
-    <button onclick="openPDFServer()">Відкрити PDF (сервер)</button>
-    <button onclick="downloadPDFLocal()">Завантажити PDF (локально)</button>
-    <button onclick="newForm()">Новий</button>
+
+  <div class="actions">
+    <button class="secondary" id="btnAdd">+ Додати позицію</button>
+    <button id="btnSave">Зберегти рахунок</button>
   </div>
 
-  <div id="status" class="muted"></div>
-  <div class="muted">API-адреса береться з параметра <code>?api=</code>. Якщо працюєш через ngrok — ми додаємо <code>ngrok-skip-browser-warning=1</code> автоматично. Для чистки кешу додай <code>&wipe=1</code>.</div>
+  <div class="actions">
+    <button class="secondary" id="btnOpenHtml">Відкрити HTML</button>
+    <button id="btnOpenPdf">Відкрити PDF (сервер)</button>
+    <button class="secondary" id="btnLocalPdf">Завантажити PDF (локально)</button>
+    <button class="secondary" id="btnNew">Новий</button>
+  </div>
+
+  <div id="err" class="error"></div>
+  <p class="muted">API-адреса береться з параметра <code>?api=</code>. Якщо працюєш через ngrok — ми додаємо <code>ngrok-skip-browser-warning=1</code> автоматично.</p>
+</section>
+
+<script>
+// ---- Wipe mode ----
+(async function wipeIfAsked(){
+  const qs = new URLSearchParams(location.search);
+  if (!qs.has('wipe') && !qs.has('wipe_fonts')) return;
+
+  try {
+    if (window.caches && caches.keys) {
+      const names = await caches.keys();
+      await Promise.all(names.map(n => caches.delete(n).catch(()=>{})));
+    }
+    if (window.indexedDB && indexedDB.databases) {
+      const dbs = await indexedDB.databases();
+      await Promise.all((dbs||[]).map(d => new Promise(res=>{
+        const req = indexedDB.deleteDatabase(d.name); req.onsuccess = req.onerror = req.onblocked = ()=>res();
+      })));
+    }
+    try { localStorage.clear(); } catch(_){}
+    try { sessionStorage.clear(); } catch(_){}
+  } catch(e) { console.warn('Wipe error:', e); }
+
+  qs.delete('wipe'); qs.delete('wipe_fonts');
+  if (!qs.has('v')) qs.set('v', Date.now());
+  location.replace(location.pathname + '?' + qs.toString());
+})();
+
+// ---- Утиліти ----
+function apiBase() {
+  const api = new URLSearchParams(location.search).get('api') || '';
+  return api ? new URL(api, location.href) : new URL(location.origin);
+}
+function apiUrl(pathOrUrl) {
+  const base = apiBase();
+  const url = new URL(pathOrUrl, base);
+  url.searchParams.set('ngrok-skip-browser-warning', '1');
+  return url.toString();
+}
+async function fetchJSON(path, opts={}) {
+  const r = await fetch(apiUrl(path), { headers: { 'Content-Type':'application/json' }, ...opts });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return await r.json();
+}
+function row(data={name:'', qty:1, unit:'se', price:0}) {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input value="${data.name||''}"></td>
+    <td><input style="width:70px" type="number" step="0.01" value="${data.qty||1}"></td>
+    <td><input style="width:60px" value="${data.unit||'se'}"></td>
+    <td><input style="width:120px" type="number" step="0.01" value="${data.price||0}"></td>
+    <td><button class="secondary">x</button></td>`;
+  tr.querySelector('button').onclick = () => tr.remove();
+  return tr;
+}
+function readItems() {
+  const items = [];
+  document.querySelectorAll('#tbl tbody tr').forEach(tr=>{
+    const [name, qty, unit, price] = [...tr.querySelectorAll('input')].map(i=>i.value.trim());
+    if (name) items.push({name, qty: +qty||1, unit: unit||'se', price: +price||0});
+  });
+  return items;
+}
+function sellerFromForm() {
+  return {
+    name:  document.getElementById('s_name').value.trim(),
+    iban:  document.getElementById('s_iban').value.trim(),
+    address: document.getElementById('s_addr').value.trim(),
+    phone: document.getElementById('s_phone').value.trim(),
+    tax_id: document.getElementById('s_tax').value.trim(),
+    bank: document.getElementById('s_bank').value.trim(),
+    email: document.getElementById('s_email').value.trim(),
+    logo_url: document.getElementById('s_logo').value.trim(),
+    stamp_url: document.getElementById('s_stamp').value.trim(),
+    sign_url: document.getElementById('s_sign').value.trim(),
+  };
+}
+function fillSeller(s) {
+  document.getElementById('s_name').value = s.name||'';
+  document.getElementById('s_iban').value = s.iban||'';
+  document.getElementById('s_addr').value = s.address||'';
+  document.getElementById('s_phone').value = s.phone||'';
+  document.getElementById('s_tax').value = s.tax_id||'';
+  document.getElementById('s_bank').value = s.bank||'';
+  document.getElementById('s_email').value = s.email||'';
+  document.getElementById('s_logo').value = s.logo_url||'';
+  document.getElementById('s_stamp').value = s.stamp_url||'';
+  document.getElementById('s_sign').value = s.sign_url||'';
+}
+
+// ---- Завантажити/зберегти продавця ----
+async function loadSeller() {
+  try {
+    const s = await fetchJSON('/api/seller');
+    fillSeller(s || {});
+  } catch(e) {
+    console.warn('seller get fail', e);
+  }
+}
+async function saveSeller() {
+  const s = sellerFromForm();
+  await fetch(apiUrl('/api/seller'), {method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(s)});
+}
+
+// ---- Події інтерфейсу ----
+document.getElementById('btnAdd').onclick = () => {
+  document.querySelector('#tbl tbody').appendChild(row({}));
+};
+
+document.getElementById('btnSaveSeller').onclick = async () => {
+  try { await saveSeller(); msg('Реквізити продавця збережено.'); }
+  catch(e){ msg('Помилка збереження: '+e.message); }
+};
+
+document.getElementById('btnSave').onclick = async () => {
+  try{
+    const payload = {
+      seller: sellerFromForm(),
+      buyer: { name: document.getElementById('b_name').value.trim() },
+      invoice: { currency: document.getElementById('inv_curr').value },
+      items: readItems()
+    };
+    const r = await fetch(apiUrl('/api/invoices'), {method:'POST', body: JSON.stringify(payload), headers:{'Content-Type': 'application/json'}});
+    const j = await r.json();
+    if(!r.ok || !j.ok) throw new Error(j.error || `HTTP ${r.status}`);
+
+    // збережемо для наступних дій
+    window._lastInvoice = j;
+    msg(`Збережено: ${j.number}`);
+  }catch(e){
+    msg('Помилка збереження: '+e.message);
+  }
+};
+
+document.getElementById('btnOpenHtml').onclick = () => {
+  const inv = window._lastInvoice;
+  if(!inv) return msg('Спочатку збережи рахунок.');
+  window.open(apiUrl(`/api/invoices/${inv.id}/html`), '_blank', 'noopener');
+};
+
+document.getElementById('btnOpenPdf').onclick = () => {
+  const inv = window._lastInvoice;
+  if(!inv) return msg('Спочатку збережи рахунок.');
+  // важливо: відкриваємо саме наш /pdf_page через apiUrl → це гарантує skip-param і правильний хост
+  window.open(apiUrl(`/api/invoices/${inv.id}/pdf_page`), '_blank', 'noopener');
+};
+
+document.getElementById('btnLocalPdf').onclick = async () => {
+  try{
+    // шрифти беруться з GH Pages (не через ngrok)
+    const [reg, bold] = await Promise.all([
+      fetch('fonts/DejaVuSans.ttf').then(r=>r.arrayBuffer()),
+      fetch('fonts/DejaVuSans-Bold.ttf').then(r=>r.arrayBuffer()),
+    ]);
+
+    const jsPDF = window.jspdf.jsPDF;
+    const pdf = new jsPDF({unit:'pt', format:'a4'});
+
+    // додати шрифти у VFS
+    pdf.addFileToVFS('DejaVuSans.ttf', arrayBufferToBase64(reg));
+    pdf.addFileToVFS('DejaVuSans-Bold.ttf', arrayBufferToBase64(bold));
+    pdf.addFont('DejaVuSans.ttf', 'DejaVu', 'normal');
+    pdf.addFont('DejaVuSans-Bold.ttf', 'DejaVu', 'bold');
+
+    pdf.setFont('DejaVu','bold'); pdf.setFontSize(16);
+    const inv = window._lastInvoice;
+    const number = inv?.number || 'INV';
+    pdf.text(`Рахунок # ${number}`, 40, 60);
+
+    pdf.setFont('DejaVu','normal'); pdf.setFontSize(11);
+    const s = sellerFromForm();
+    pdf.text(`Продавець: ${s.name || ''}`, 40, 84);
+
+    pdf.save(`invoice-${number}.pdf`);
+  }catch(e){
+    msg('Помилка локального PDF: ' + e.message);
+  }
+};
+
+document.getElementById('btnNew').onclick = async () => {
+  document.querySelector('#tbl tbody').innerHTML = '';
+  document.querySelector('#tbl tbody').appendChild(row({}));
+  await loadSeller();
+  window._lastInvoice = null;
+  msg('Нова форма.');
+};
+
+function msg(t){ document.getElementById('err').textContent = t; }
+
+// helpers
+function arrayBufferToBase64(buffer) {
+  let binary = '';
+  let bytes = new Uint8Array(buffer);
+  for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
+
+// старт
+(function init(){
+  document.querySelector('#tbl tbody').appendChild(row({name:'Консультаційні послуги', qty:1, unit:'se', price:1200}));
+  document.querySelector('#tbl tbody').appendChild(row({name:'Реклама', qty:1, unit:'se', price:500}));
+  loadSeller();
+})();
+</script>
+
+<!-- jsPDF (без зброї стилів, як є) -->
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 </body>
 </html>
