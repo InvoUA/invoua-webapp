@@ -4,7 +4,6 @@
   <meta charset="utf-8">
   <title>InvOUA WebApp</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-
   <style>
     body { font-family: system-ui, -apple-system, Arial, sans-serif; margin: 18px; }
     label { display:block; margin-top:10px; font-weight:600; }
@@ -16,73 +15,6 @@
     pre { background:#111; color:#9ef; padding:10px; border-radius:6px; max-height:220px; overflow:auto;}
   </style>
 </head>
-<script>
-// ---------- API base from ?api= ----------
-const QS = new URLSearchParams(location.search);
-const API_BASE = QS.get('api') || '';
-if (!API_BASE) console.warn('⚠️ Не задано ?api= у URL');
-
-// ---------- Bypass ngrok landing ----------
-function ngrokize(url) {
-  try {
-    const u = new URL(url, location.href);
-    if (u.host.includes('ngrok-free.app') && !u.searchParams.has('ngrok-skip-browser-warning')) {
-      u.searchParams.set('ngrok-skip-browser-warning', '1');
-    }
-    return u.toString();
-  } catch { return url; }
-}
-
-// ---------- Fetch wrapper з header для ngrok ----------
-async function apiFetch(path, opts = {}) {
-  const url = API_BASE.replace(/\/+$/,'') + '/' + path.replace(/^\/+/, '');
-  const headers = {
-    'ngrok-skip-browser-warning': '1',
-    ...(opts.headers || {})
-  };
-  const init = { ...opts, headers };
-  return fetch(url, init);
-}
-
-// ---------- Відкрити PDF (inline або завантаження) ----------
-function openInvoicePdf(invoiceId, download = false) {
-  const base = API_BASE.replace(/\/+$/,'') + `/api/invoices/${encodeURIComponent(invoiceId)}/pdf`;
-  const url = new URL(base);
-  url.searchParams.set('download', download ? '1' : '0');
-  // головне — додати skip:
-  const finalUrl = ngrokize(url.toString());
-  window.open(finalUrl, '_blank', 'noopener');
-}
-
-// Зробимо доступним з будь-якого місця
-window.INVOUA = { apiFetch, openInvoicePdf };
-
-// ---------- Wipe mode (кеш браузера) ----------
-(async function wipeIfAsked(){
-  if (!QS.has('wipe') && !QS.has('wipe_fonts')) return;
-  try {
-    if (window.caches?.keys) {
-      const names = await caches.keys();
-      await Promise.all(names.map(n => caches.delete(n).catch(()=>{})));
-    }
-    if (indexedDB?.databases) {
-      const dbs = await indexedDB.databases();
-      await Promise.all((dbs || []).map(d => new Promise(res => {
-        const req = indexedDB.deleteDatabase(d.name);
-        req.onsuccess = req.onerror = req.onblocked = () => res();
-      })));
-    }
-    try { localStorage.clear(); } catch(_){}
-    try { sessionStorage.clear(); } catch(_){}
-  } catch(e) {
-    console.warn('Wipe error:', e);
-  }
-  // перезавантажимо з версією, щоб пробити кеш
-  QS.delete('wipe'); QS.delete('wipe_fonts');
-  if (!QS.has('v')) QS.set('v', Date.now());
-  location.replace(location.pathname + '?' + QS.toString());
-})();
-</script>
 <body>
   <h2>InvOUA – демо</h2>
   <div id="status" class="muted"></div>
@@ -133,78 +65,85 @@ window.INVOUA = { apiFetch, openInvoicePdf };
   <pre id="log"></pre>
 
 <script>
-// ---- Wipe mode ----
-(async function wipeIfAsked(){
-  const qs = new URLSearchParams(location.search);
-  if (!qs.has('wipe') && !qs.has('wipe_fonts')) return;
-
-  try {
-    // Cache Storage
-    if (window.caches && caches.keys) {
-      const names = await caches.keys();
-      await Promise.all(names.map(n => caches.delete(n).catch(()=>{})));
-    }
-    // IndexedDB
-    if (indexedDB && indexedDB.databases) {
-      const dbs = await indexedDB.databases();
-      await Promise.all((dbs||[]).map(d => new Promise(res=>{
-        const req = indexedDB.deleteDatabase(d.name); req.onsuccess = req.onerror = req.onblocked = ()=>res();
-      })));
-    }
-    // Web Storage
-    try { localStorage.clear(); } catch(_){}
-    try { sessionStorage.clear(); } catch(_){}
-  } catch(e) {
-    console.warn('Wipe error:', e);
-  }
-
-  // Reopen without wipe flag and with version bump
-  qs.delete('wipe'); qs.delete('wipe_fonts');
-  if (!qs.has('v')) qs.set('v', Date.now().toString());
-  location.replace(location.pathname + '?' + qs.toString());
-})();
-
-const logEl = document.getElementById('log');
+// ================== UTIL & INIT ==================
+const QS = new URLSearchParams(location.search);
+const API = (QS.get('api') || '').replace(/\/+$/,'');
 const statusEl = document.getElementById('status');
+const logEl = document.getElementById('log');
 function log(...args){ const s=args.map(x=>typeof x=='string'?x:JSON.stringify(x,null,2)).join(' '); logEl.textContent += s + '\n'; }
 
-const params = new URLSearchParams(location.search);
-const API = params.get('api');
 if(!API){
   statusEl.textContent = 'Помилка: у URL має бути ?api=... (адреса вашого API/ngrok).';
 } else {
   statusEl.textContent = 'API = ' + API;
 }
 
-// helper: attach ngrok bypass header always; also append ?ngrok-skip-browser-warning=1 to GETs
-function urlWithBypass(u){
-  try{
-    const url = new URL(u, API);
-    if(!url.searchParams.has('ngrok-skip-browser-warning')){
-      url.searchParams.set('ngrok-skip-browser-warning','1');
+// single wipe block (кеш, IndexedDB, WebStorage) + версія
+(async function wipeIfAsked(){
+  if (!QS.has('wipe') && !QS.has('wipe_fonts')) return;
+  try {
+    if (window.caches?.keys) {
+      const names = await caches.keys();
+      await Promise.all(names.map(n => caches.delete(n).catch(()=>{})));
     }
-    return url.toString();
-  }catch(e){
-    return u;
+    if (indexedDB?.databases) {
+      const dbs = await indexedDB.databases();
+      await Promise.all((dbs || []).map(d => new Promise(res => {
+        const req = indexedDB.deleteDatabase(d.name);
+        req.onsuccess = req.onerror = req.onblocked = () => res();
+      })));
+    }
+    try { localStorage.clear(); } catch(_){}
+    try { sessionStorage.clear(); } catch(_){}
+  } catch(e) { console.warn('Wipe error:', e); }
+  QS.delete('wipe'); QS.delete('wipe_fonts');
+  if (!QS.has('v')) QS.set('v', Date.now().toString());
+  location.replace(location.pathname + '?' + QS.toString());
+})();
+
+// ngrok bypass helper
+function urlWithBypass(pathOrUrl){
+  const u = new URL(pathOrUrl, API + '/');
+  if (u.host.includes('ngrok-free.app') && !u.searchParams.has('ngrok-skip-browser-warning')) {
+    u.searchParams.set('ngrok-skip-browser-warning','1');
   }
-}
-async function apiFetch(path, options={}){
-  const headers = Object.assign({
-    'Content-Type':'application/json',
-    'ngrok-skip-browser-warning':'1'
-  }, options.headers||{});
-  const url = urlWithBypass(API.replace(/\/+$/,'') + path);
-  const res = await fetch(url, {...options, headers});
-  if(!res.ok){
-    const text = await res.text().catch(()=> '');
-    throw new Error(`HTTP ${res.status}: ${text}`);
-  }
-  const ct = res.headers.get('content-type') || '';
-  if(ct.includes('application/json')) return res.json();
-  return res.text();
+  return u.toString();
 }
 
-// save seller
+// fetch with timeout + bypass header
+const FETCH_TIMEOUT_MS = 15000;
+async function apiFetch(path, options={}){
+  const controller = new AbortController();
+  const t = setTimeout(()=>controller.abort('timeout'), FETCH_TIMEOUT_MS);
+  try{
+    const headers = Object.assign({
+      'Content-Type':'application/json',
+      'ngrok-skip-browser-warning':'1',
+      'Cache-Control':'no-store'
+    }, options.headers||{});
+    const res = await fetch(urlWithBypass(path.startsWith('http') ? path : API + path), {
+      ...options, headers, signal: controller.signal
+    });
+    if (!res.ok) {
+      const txt = await res.text().catch(()=> '');
+      throw new Error(`HTTP ${res.status}: ${txt}`);
+    }
+    const ct = res.headers.get('content-type') || '';
+    return ct.includes('application/json') ? res.json() : res.text();
+  } finally { clearTimeout(t); }
+}
+
+// optional prewarm
+(async ()=>{
+  if(!API) return;
+  try{
+    const t0 = performance.now();
+    const r = await apiFetch('/api/health', { method:'GET' });
+    log('health:', r, `(${Math.round(performance.now()-t0)}ms)`);
+  }catch(e){ log('health error:', e.message); }
+})();
+
+// ================== HANDLERS ==================
 document.getElementById('saveSeller').onclick = async () => {
   try{
     const seller = {
@@ -220,7 +159,6 @@ document.getElementById('saveSeller').onclick = async () => {
   }
 };
 
-// create invoice
 let lastInvoiceId = null;
 document.getElementById('makeInvoice').onclick = async () => {
   try{
@@ -243,39 +181,45 @@ document.getElementById('makeInvoice').onclick = async () => {
   }
 };
 
-// open PDF WITHOUT ngrok landing: fetch -> blob -> open blob:
+// PDF open as BLOB (ngrok-landing bypass) + Safari-safe open
 async function openPdfBlob(invId, download=false){
-  const pdfUrl = urlWithBypass(API.replace(/\/+$/,'') + `/api/invoices/${invId}/pdf`);
+  const pdfUrl = urlWithBypass(API + `/api/invoices/${encodeURIComponent(invId)}/pdf`);
+  // попередньо відкриємо вікно (для Safari/Telegram WebView), щоб не заблокувало
+  const win = window.open('about:blank', '_blank', 'noopener');
   try{
     const res = await fetch(pdfUrl, { headers: { 'ngrok-skip-browser-warning':'1' }});
-    if(!res.ok){ throw new Error('HTTP '+res.status); }
+    if(!res.ok) throw new Error('HTTP '+res.status);
     const blob = await res.blob();
     const blobUrl = URL.createObjectURL(blob);
     if(download){
       const a = document.createElement('a'); a.href = blobUrl; a.download = `${invId}.pdf`;
-      document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(blobUrl), 2000);
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(blobUrl), 2000);
+      if (win) win.close();
     }else{
-      window.open(blobUrl, '_blank'); // opens viewer without touching ngrok host directly
+      if (win) win.location.href = blobUrl; else window.open(blobUrl, '_blank');
       setTimeout(()=>URL.revokeObjectURL(blobUrl), 60000);
     }
   }catch(e){
     log('pdf open error:', e.message);
-    // fallback: navigate to direct URL (still with bypass param)
-    window.open(pdfUrl, '_blank');
+    if (win) win.location.href = pdfUrl; else window.open(pdfUrl, '_blank');
   }
 }
-document.getElementById('openPdf').onclick = async () => {
-  if(!lastInvoiceId){ return alert('Спершу створіть рахунок.'); }
+
+document.getElementById('openPdf').onclick = () => {
+  if(!lastInvoiceId) return alert('Спершу створіть рахунок.');
   openPdfBlob(lastInvoiceId,false);
 };
-document.getElementById('downloadPdf').onclick = async () => {
-  if(!lastInvoiceId){ return alert('Спершу створіть рахунок.'); }
+
+document.getElementById('downloadPdf').onclick = () => {
+  if(!lastInvoiceId) return alert('Спершу створіть рахунок.');
   openPdfBlob(lastInvoiceId,true);
 };
-document.getElementById('openHtml').onclick = async () => {
-  if(!lastInvoiceId){ return alert('Спершу створіть рахунок.'); }
-  const u = urlWithBypass(API.replace(/\/+$/,'') + `/api/invoices/${lastInvoiceId}/html`);
-  window.open(u, '_blank');
+
+document.getElementById('openHtml').onclick = () => {
+  if(!lastInvoiceId) return alert('Спершу створіть рахунок.');
+  const u = urlWithBypass(API + `/api/invoices/${encodeURIComponent(lastInvoiceId)}/html`);
+  window.open(u, '_blank', 'noopener');
 };
 </script>
 </body>
