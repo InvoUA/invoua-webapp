@@ -16,6 +16,73 @@
     pre { background:#111; color:#9ef; padding:10px; border-radius:6px; max-height:220px; overflow:auto;}
   </style>
 </head>
+<script>
+// ---------- API base from ?api= ----------
+const QS = new URLSearchParams(location.search);
+const API_BASE = QS.get('api') || '';
+if (!API_BASE) console.warn('⚠️ Не задано ?api= у URL');
+
+// ---------- Bypass ngrok landing ----------
+function ngrokize(url) {
+  try {
+    const u = new URL(url, location.href);
+    if (u.host.includes('ngrok-free.app') && !u.searchParams.has('ngrok-skip-browser-warning')) {
+      u.searchParams.set('ngrok-skip-browser-warning', '1');
+    }
+    return u.toString();
+  } catch { return url; }
+}
+
+// ---------- Fetch wrapper з header для ngrok ----------
+async function apiFetch(path, opts = {}) {
+  const url = API_BASE.replace(/\/+$/,'') + '/' + path.replace(/^\/+/, '');
+  const headers = {
+    'ngrok-skip-browser-warning': '1',
+    ...(opts.headers || {})
+  };
+  const init = { ...opts, headers };
+  return fetch(url, init);
+}
+
+// ---------- Відкрити PDF (inline або завантаження) ----------
+function openInvoicePdf(invoiceId, download = false) {
+  const base = API_BASE.replace(/\/+$/,'') + `/api/invoices/${encodeURIComponent(invoiceId)}/pdf`;
+  const url = new URL(base);
+  url.searchParams.set('download', download ? '1' : '0');
+  // головне — додати skip:
+  const finalUrl = ngrokize(url.toString());
+  window.open(finalUrl, '_blank', 'noopener');
+}
+
+// Зробимо доступним з будь-якого місця
+window.INVOUA = { apiFetch, openInvoicePdf };
+
+// ---------- Wipe mode (кеш браузера) ----------
+(async function wipeIfAsked(){
+  if (!QS.has('wipe') && !QS.has('wipe_fonts')) return;
+  try {
+    if (window.caches?.keys) {
+      const names = await caches.keys();
+      await Promise.all(names.map(n => caches.delete(n).catch(()=>{})));
+    }
+    if (indexedDB?.databases) {
+      const dbs = await indexedDB.databases();
+      await Promise.all((dbs || []).map(d => new Promise(res => {
+        const req = indexedDB.deleteDatabase(d.name);
+        req.onsuccess = req.onerror = req.onblocked = () => res();
+      })));
+    }
+    try { localStorage.clear(); } catch(_){}
+    try { sessionStorage.clear(); } catch(_){}
+  } catch(e) {
+    console.warn('Wipe error:', e);
+  }
+  // перезавантажимо з версією, щоб пробити кеш
+  QS.delete('wipe'); QS.delete('wipe_fonts');
+  if (!QS.has('v')) QS.set('v', Date.now());
+  location.replace(location.pathname + '?' + QS.toString());
+})();
+</script>
 <body>
   <h2>InvOUA – демо</h2>
   <div id="status" class="muted"></div>
