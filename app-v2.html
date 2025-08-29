@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="uk">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8">
   <title>InvoUA MiniApp</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
@@ -19,7 +19,6 @@
     .muted{color:#666;font-size:12px}
     .toast{margin-top:10px;font-size:13px}
     .ok{color:#0a0}.err{color:#c00}
-    #afterCreate{display:none}
   </style>
 </head>
 <body>
@@ -68,7 +67,7 @@
     <button id="downloadPdf" class="secondary" disabled>Завантажити PDF</button>
   </div>
 
-  <div id="afterCreate" class="muted">Рахунок створено. Тепер можна відкрити або завантажити PDF.</div>
+  <div class="toast" id="toast"></div>
 
   <script>
     const API = (window.API_BASE_URL) || (location.origin);
@@ -80,6 +79,11 @@
       const url = new URL(u, API);
       url.searchParams.set('ngrok-skip-browser-warning','1');
       return url.toString();
+    }
+    function toast(msg, ok=true){
+      const el = document.getElementById('toast');
+      el.className = 'toast ' + (ok?'ok':'err');
+      el.textContent = msg;
     }
     function readForm(){
       const q = s => document.querySelector(s);
@@ -126,9 +130,10 @@
 
     async function createInvoice(){
       try{
+        toast('Створюю рахунок…', true);
         const body = readForm();
         const url = new URL('/api/invoices', API);
-        url.searchParams.set('render', 'false'); // не форсимо PDF, хай генерується при відкритті
+        url.searchParams.set('render', 'false');
         const res = await fetch(urlWithBypass(url), {
           method:'POST',
           headers:{'content-type':'application/json','ngrok-skip-browser-warning':'1'},
@@ -139,26 +144,26 @@
         lastInvoiceId = data.id;
         document.getElementById('openPdf').disabled = false;
         document.getElementById('downloadPdf').disabled = false;
-        document.getElementById('afterCreate').style.display = 'block';
+        toast('Готово. Тепер можна відкрити/завантажити PDF', true);
       }catch(e){
-        alert('Помилка створення рахунку: ' + e.message);
+        toast('Помилка створення рахунку: ' + e.message, false);
       }
     }
 
-    // PDF open as BLOB (ngrok-landing bypass) + Safari/TG-safe open
-    async function openPdfBlob(invId, download=false){
+    async function openPdf(invId, download=false){
+      if (!invId) return;
       const pdfUrl = urlWithBypass(API + `/api/invoices/${encodeURIComponent(invId)}/pdf${download ? '/download' : ''}`);
-      // попередньо відкриємо вікно (для Safari/Telegram WebView), щоб не заблокувало
-      const win = window.open('about:blank', '_blank', 'noopener');
+      // Попередньо відкриємо вікно (краще для iOS/TG WebView), щоб не заблокувало:
+      const w = window.open('about:blank', '_blank', 'noopener');
       try{
         const res = await fetch(pdfUrl, { headers: { 'ngrok-skip-browser-warning':'1' }});
         if(!res.ok) throw new Error('HTTP '+res.status);
         const blob = await res.blob();
         const blobUrl = URL.createObjectURL(blob);
-        if (win) { win.location = blobUrl; return; }
+        if (w) { w.location = blobUrl; return; }
         window.open(blobUrl, '_blank');
       }catch(e){
-        // фолбек: відкрити напряму (у WebApp або браузері)
+        // фолбек: напряму
         if (window.Telegram && Telegram.WebApp) {
           Telegram.WebApp.openLink(pdfUrl, { try_instant_view:false });
         } else {
@@ -168,8 +173,8 @@
     }
 
     document.getElementById('create').onclick = createInvoice;
-    document.getElementById('openPdf').onclick = ()=> openPdfBlob(lastInvoiceId, false);
-    document.getElementById('downloadPdf').onclick = ()=> openPdfBlob(lastInvoiceId, true);
+    document.getElementById('openPdf').onclick = ()=> openPdf(lastInvoiceId, false);
+    document.getElementById('downloadPdf').onclick = ()=> openPdf(lastInvoiceId, true);
   </script>
 </body>
 </html>
