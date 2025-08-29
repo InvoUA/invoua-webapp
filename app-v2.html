@@ -2,225 +2,251 @@
 <html lang="uk">
 <head>
   <meta charset="utf-8">
-  <title>InvOUA WebApp</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>InvoUA — рахунок за 60 секунд</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    body { font-family: system-ui, -apple-system, Arial, sans-serif; margin: 18px; }
-    label { display:block; margin-top:10px; font-weight:600; }
-    input, textarea { width:100%; padding:8px; margin-top:6px; box-sizing:border-box; }
-    .row { display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
-    .btn { display:inline-block; padding:8px 12px; margin-top:12px; border:1px solid #ccc; border-radius:6px; cursor:pointer; background:#f6f6f6; }
-    .btn.primary { background:#1a73e8; color:#fff; border-color:#1a73e8; }
-    .muted { color:#666; font-size:13px; }
-    pre { background:#111; color:#9ef; padding:10px; border-radius:6px; max-height:220px; overflow:auto;}
+    :root { --gap: 10px; }
+    body { font-family: system-ui, -apple-system, Arial, sans-serif; margin: 0; padding: 14px; }
+    h1 { font-size: 20px; margin: 0 0 12px 0; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); }
+    label { font-size:12px; color:#444; }
+    input, select { width:100%; padding:8px; border:1px solid #ccc; border-radius:8px; }
+    table { width:100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border:1px solid #ddd; padding:8px; font-size:14px; }
+    th { background:#f8f8f8; text-align:left; }
+    .btns { margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; }
+    button { padding:10px 14px; border:0; border-radius:999px; background:#0a84ff; color:#fff; font-weight:600; cursor:pointer; }
+    button.secondary { background:#eee; color:#222; }
+    .muted { color:#666; font-size:12px; }
+    .toast { margin-top:10px; font-size:13px; }
+    .ok { color:#0a0; }
+    .err { color:#c00; }
   </style>
 </head>
 <body>
-  <h2>InvOUA – демо</h2>
-  <div id="status" class="muted"></div>
+  <h1>InvoUA — рахунок за 60 секунд</h1>
 
-  <div class="row">
+  <div class="grid">
     <div>
-      <h3>Продавець</h3>
-      <label>Назва <input id="s_name" placeholder="ТОВ Приклад"></label>
-      <label>Адреса <input id="s_addr" placeholder="м. Київ, вул…"></label>
-      <label>Email <input id="s_email" placeholder="seller@example.com"></label>
-      <label>Телефон <input id="s_phone" placeholder="+380…"></label>
-      <label>IBAN <input id="s_iban" placeholder="UA…"></label>
-      <label>ЄДРПОУ/ІПН <input id="s_tax" placeholder="12345678"></label>
-      <label>Лого URL <input id="s_logo" placeholder="https://...png"></label>
-      <label>Печатка URL <input id="s_stamp" placeholder="https://...png"></label>
-      <label>Підпис URL <input id="s_sign" placeholder="https://...png"></label>
-      <button class="btn" id="saveSeller">Зберегти продавця</button>
-      <div class="muted">Використовуватиметься в рахунку</div>
+      <label>Продавець (Назва)</label>
+      <input id="sellerName" placeholder="ТОВ «Компанія»" />
     </div>
     <div>
-      <h3>Покупець</h3>
-      <label>Назва <input id="b_name" placeholder="ФОП Іванов"></label>
-      <label>Адреса <input id="b_addr" placeholder="м. Львів, вул…"></label>
-      <label>Email <input id="b_email" placeholder="buyer@example.com"></label>
-      <label>Телефон <input id="b_phone" placeholder="+380…"></label>
-
-      <h3 style="margin-top:20px">Позиції</h3>
-      <label>Найменування <input id="it_name" value="Послуги"></label>
-      <label>К-сть <input id="it_qty" type="number" step="1" value="1"></label>
-      <label>Од. <input id="it_unit" value="шт"></label>
-      <label>Ціна <input id="it_price" type="number" step="0.01" value="1700"></label>
-
-      <h3 style="margin-top:20px">Рахунок</h3>
-      <label>Номер <input id="inv_no" placeholder="(auto)"></label>
-      <label>Валюта <input id="inv_cur" value="UAH"></label>
-      <label>Нотатка <textarea id="inv_notes" rows="2"></textarea></label>
-
-      <button class="btn primary" id="makeInvoice">Створити рахунок</button>
-      <div id="afterCreate" style="display:none; margin-top:10px">
-        <button class="btn" id="openPdf">Відкрити PDF</button>
-        <button class="btn" id="downloadPdf">Завантажити PDF</button>
-        <button class="btn" id="openHtml">Переглянути HTML</button>
-      </div>
+      <label>ЄДРПОУ (опц.)</label>
+      <input id="sellerEdrpou" placeholder="12345678" />
+    </div>
+    <div>
+      <label>IBAN (опц.)</label>
+      <input id="sellerIban" placeholder="UA..." />
+    </div>
+    <div>
+      <label>Банк (опц.)</label>
+      <input id="sellerBank" placeholder="АТ «Банк»" />
+    </div>
+    <div>
+      <label>Адреса (опц.)</label>
+      <input id="sellerAddress" placeholder="м. Київ, вул..." />
+    </div>
+    <div>
+      <label>Тел./email (опц.)</label>
+      <input id="sellerContact" placeholder="+380..., info@example.com" />
     </div>
   </div>
 
-  <h3 style="margin-top:24px">Журнал</h3>
-  <pre id="log"></pre>
+  <div class="grid" style="margin-top:10px">
+    <div>
+      <label>Покупець (Назва)</label>
+      <input id="buyerName" placeholder="ТОВ «Клієнт»" />
+    </div>
+    <div>
+      <label>ЄДРПОУ (опц.)</label>
+      <input id="buyerEdrpou" placeholder="87654321" />
+    </div>
+    <div>
+      <label>Адреса (опц.)</label>
+      <input id="buyerAddress" placeholder="м. Львів, вул..." />
+    </div>
+    <div>
+      <label>Контакт (опц.)</label>
+      <input id="buyerContact" placeholder="ІПН/Телефон/Особа" />
+    </div>
+    <div>
+      <label>Номер рахунку (опц.)</label>
+      <input id="invNumber" placeholder="Авто, якщо пусто" />
+    </div>
+    <div>
+      <label>Дата (опц.)</label>
+      <input id="invDate" placeholder="2025-08-29" />
+    </div>
+  </div>
 
-<script>
-// ================== UTIL & INIT ==================
-const QS = new URLSearchParams(location.search);
-const API = (QS.get('api') || '').replace(/\/+$/,'');
-const statusEl = document.getElementById('status');
-const logEl = document.getElementById('log');
-function log(...args){ const s=args.map(x=>typeof x=='string'?x:JSON.stringify(x,null,2)).join(' '); logEl.textContent += s + '\n'; }
+  <table id="items">
+    <thead><tr><th>Поз.</th><th>Назва</th><th>К-сть</th><th>Ціна</th><th>Од.</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td><input placeholder="Послуга / товар" value="Послуги обліку" /></td>
+        <td><input type="number" step="0.01" value="1" /></td>
+        <td><input type="number" step="0.01" value="1000" /></td>
+        <td><input value="шт" /></td>
+      </tr>
+    </tbody>
+  </table>
 
-if(!API){
-  statusEl.textContent = 'Помилка: у URL має бути ?api=... (адреса вашого API/ngrok).';
-} else {
-  statusEl.textContent = 'API = ' + API;
-}
+  <div class="grid" style="margin-top:10px">
+    <div>
+      <label>Валюта</label>
+      <input id="currency" value="UAH" />
+    </div>
+    <div>
+      <label>ПДВ % (опц.)</label>
+      <input id="vatRate" type="number" step="0.01" placeholder="0 або 20" />
+    </div>
+    <div style="grid-column: 1 / span 2">
+      <label>Примітка (опц.)</label>
+      <input id="note" placeholder="Дякуємо за співпрацю" />
+    </div>
+  </div>
 
-// single wipe block (кеш, IndexedDB, WebStorage) + версія
-(async function wipeIfAsked(){
-  if (!QS.has('wipe') && !QS.has('wipe_fonts')) return;
-  try {
-    if (window.caches?.keys) {
-      const names = await caches.keys();
-      await Promise.all(names.map(n => caches.delete(n).catch(()=>{})));
+  <div class="btns">
+    <button id="create">Створити рахунок</button>
+    <button id="openPdf" class="secondary" disabled>Відкрити PDF</button>
+    <button id="downloadPdf" class="secondary" disabled>Завантажити PDF</button>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ==== Налаштування ====
+    // Якщо в .env/лаунчері інший домен — підстав свій
+    const API = (window.API_BASE_URL) || (location.origin);
+
+    // Telegram WebApp розгорнути
+    if (window.Telegram && Telegram.WebApp) {
+      Telegram.WebApp.ready();
+      Telegram.WebApp.expand();
     }
-    if (indexedDB?.databases) {
-      const dbs = await indexedDB.databases();
-      await Promise.all((dbs || []).map(d => new Promise(res => {
-        const req = indexedDB.deleteDatabase(d.name);
-        req.onsuccess = req.onerror = req.onblocked = () => res();
-      })));
+
+    let lastInvoiceId = null;
+
+    function withBypass(u) {
+      const url = new URL(u);
+      url.searchParams.set('ngrok-skip-browser-warning', '1');
+      return url.toString();
     }
-    try { localStorage.clear(); } catch(_){}
-    try { sessionStorage.clear(); } catch(_){}
-  } catch(e) { console.warn('Wipe error:', e); }
-  QS.delete('wipe'); QS.delete('wipe_fonts');
-  if (!QS.has('v')) QS.set('v', Date.now().toString());
-  location.replace(location.pathname + '?' + QS.toString());
-})();
-
-// ngrok bypass helper
-function urlWithBypass(pathOrUrl){
-  const u = new URL(pathOrUrl, API + '/');
-  if (u.host.includes('ngrok-free.app') && !u.searchParams.has('ngrok-skip-browser-warning')) {
-    u.searchParams.set('ngrok-skip-browser-warning','1');
-  }
-  return u.toString();
-}
-
-// fetch with timeout + bypass header
-const FETCH_TIMEOUT_MS = 15000;
-async function apiFetch(path, options={}){
-  const controller = new AbortController();
-  const t = setTimeout(()=>controller.abort('timeout'), FETCH_TIMEOUT_MS);
-  try{
-    const headers = Object.assign({
-      'Content-Type':'application/json',
-      'ngrok-skip-browser-warning':'1',
-      'Cache-Control':'no-store'
-    }, options.headers||{});
-    const res = await fetch(urlWithBypass(path.startsWith('http') ? path : API + path), {
-      ...options, headers, signal: controller.signal
-    });
-    if (!res.ok) {
-      const txt = await res.text().catch(()=> '');
-      throw new Error(`HTTP ${res.status}: ${txt}`);
+    function logToast(msg, ok=false) {
+      const el = document.getElementById('toast');
+      el.className = 'toast ' + (ok ? 'ok' : 'err');
+      el.textContent = msg;
     }
-    const ct = res.headers.get('content-type') || '';
-    return ct.includes('application/json') ? res.json() : res.text();
-  } finally { clearTimeout(t); }
-}
+    function readForm() {
+      const q = s => document.querySelector(s);
 
-// optional prewarm
-(async ()=>{
-  if(!API) return;
-  try{
-    const t0 = performance.now();
-    const r = await apiFetch('/api/health', { method:'GET' });
-    log('health:', r, `(${Math.round(performance.now()-t0)}ms)`);
-  }catch(e){ log('health error:', e.message); }
-})();
+      const seller = {
+        name: q('#sellerName').value.trim(),
+        edrpou: q('#sellerEdrpou').value.trim() || null,
+        iban: q('#sellerIban').value.trim() || null,
+        bank: q('#sellerBank').value.trim() || null,
+        address: q('#sellerAddress').value.trim() || null,
+        phone: null,
+        email: null
+      };
+      const contact = q('#sellerContact').value.trim();
+      if (contact) {
+        if (contact.includes('@')) seller.email = contact;
+        else seller.phone = contact;
+      }
 
-// ================== HANDLERS ==================
-document.getElementById('saveSeller').onclick = async () => {
-  try{
-    const seller = {
-      name: s_name.value, address: s_addr.value, email: s_email.value, phone: s_phone.value,
-      iban: s_iban.value, tax_id: s_tax.value, logo_url: s_logo.value, stamp_url: s_stamp.value, sign_url: s_sign.value
-    };
-    const r = await apiFetch('/api/seller', { method:'PUT', body: JSON.stringify(seller) });
-    log('seller saved:', r);
-    alert('Збережено продавця');
-  }catch(e){
-    log('seller save error:', e.message);
-    alert('Помилка збереження продавця: ' + e.message);
-  }
-};
+      const buyer = {
+        name: q('#buyerName').value.trim(),
+        edrpou: q('#buyerEdrpou').value.trim() || null,
+        address: q('#buyerAddress').value.trim() || null,
+        contact: q('#buyerContact').value.trim() || null
+      };
 
-let lastInvoiceId = null;
-document.getElementById('makeInvoice').onclick = async () => {
-  try{
-    const payload = {
-      seller: {
-        name: s_name.value, address: s_addr.value, email: s_email.value, phone: s_phone.value,
-        iban: s_iban.value, tax_id: s_tax.value, logo_url: s_logo.value, stamp_url: s_stamp.value, sign_url: s_sign.value
-      },
-      buyer: { name: b_name.value, address: b_addr.value, email: b_email.value, phone: b_phone.value },
-      items: [{ name: it_name.value, qty: Number(it_qty.value||1), unit: it_unit.value||'шт', price: Number(it_price.value||0) }],
-      invoice: { number: inv_no.value || '', currency: inv_cur.value||'UAH', notes: inv_notes.value||'' }
-    };
-    const r = await apiFetch('/api/invoices', { method:'POST', body: JSON.stringify(payload) });
-    log('invoice created:', r);
-    lastInvoiceId = r.id;
-    document.getElementById('afterCreate').style.display = 'block';
-  }catch(e){
-    log('invoice create error:', e.message);
-    alert('Помилка створення рахунку: ' + e.message);
-  }
-};
+      const items = [];
+      document.querySelectorAll('#items tbody tr').forEach(tr => {
+        const tds = tr.querySelectorAll('td');
+        const name = tds[1].querySelector('input').value.trim();
+        const qty  = parseFloat(tds[2].querySelector('input').value);
+        const price= parseFloat(tds[3].querySelector('input').value);
+        const unit = tds[4].querySelector('input').value.trim() || 'шт';
+        if (name && qty>0) items.push({ name, qty, price, unit });
+      });
 
-// PDF open as BLOB (ngrok-landing bypass) + Safari-safe open
-async function openPdfBlob(invId, download=false){
-  const pdfUrl = urlWithBypass(API + `/api/invoices/${encodeURIComponent(invId)}/pdf`);
-  // попередньо відкриємо вікно (для Safari/Telegram WebView), щоб не заблокувало
-  const win = window.open('about:blank', '_blank', 'noopener');
-  try{
-    const res = await fetch(pdfUrl, { headers: { 'ngrok-skip-browser-warning':'1' }});
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    const blob = await res.blob();
-    const blobUrl = URL.createObjectURL(blob);
-    if(download){
-      const a = document.createElement('a'); a.href = blobUrl; a.download = `${invId}.pdf`;
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(()=>URL.revokeObjectURL(blobUrl), 2000);
-      if (win) win.close();
-    }else{
-      if (win) win.location.href = blobUrl; else window.open(blobUrl, '_blank');
-      setTimeout(()=>URL.revokeObjectURL(blobUrl), 60000);
+      const vatRaw = q('#vatRate').value.trim();
+      const vat = vatRaw === '' ? null : parseFloat(vatRaw);
+
+      return {
+        number: q('#invNumber').value.trim() || null,
+        date: q('#invDate').value.trim() || null,
+        seller, buyer, items,
+        currency: q('#currency').value.trim() || 'UAH',
+        note: q('#note').value.trim() || null,
+        vat_rate: isNaN(vat) ? null : vat
+      };
     }
-  }catch(e){
-    log('pdf open error:', e.message);
-    if (win) win.location.href = pdfUrl; else window.open(pdfUrl, '_blank');
-  }
-}
 
-document.getElementById('openPdf').onclick = () => {
-  if(!lastInvoiceId) return alert('Спершу створіть рахунок.');
-  openPdfBlob(lastInvoiceId,false);
-};
+    async function createInvoice() {
+      try {
+        logToast('Створюю рахунок...', true);
+        const body = readForm();
+        const url = new URL(API + '/api/invoices');
+        // Хочеш відразу PDF? → true
+        url.searchParams.set('render', 'true');
 
-document.getElementById('downloadPdf').onclick = () => {
-  if(!lastInvoiceId) return alert('Спершу створіть рахунок.');
-  openPdfBlob(lastInvoiceId,true);
-};
+        const res = await fetch(withBypass(url.toString()), {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'ngrok-skip-browser-warning': '1' },
+          body: JSON.stringify(body)
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
 
-document.getElementById('openHtml').onclick = () => {
-  if(!lastInvoiceId) return alert('Спершу створіть рахунок.');
-  const u = urlWithBypass(API + `/api/invoices/${encodeURIComponent(lastInvoiceId)}/html`);
-  window.open(u, '_blank', 'noopener');
-};
-</script>
+        lastInvoiceId = data.id;
+        document.getElementById('openPdf').disabled = false;
+        document.getElementById('downloadPdf').disabled = false;
+
+        logToast('Готово. Можна відкривати/завантажувати PDF', true);
+      } catch (e) {
+        console.error(e);
+        logToast('Помилка створення: ' + e.message, false);
+      }
+    }
+
+    async function openPdf(invId, download=false) {
+      if (!invId) return;
+      const u = new URL(API + `/api/invoices/${encodeURIComponent(invId)}/pdf`);
+      u.searchParams.set('disposition', download ? 'attachment':'inline');
+      u.searchParams.set('ngrok-skip-browser-warning', '1');
+
+      if (!download) {
+        // 1) Спроба через BLOB (краще для Safari/TG WebView)
+        try {
+          const res = await fetch(withBypass(u.toString()), {
+            headers: { 'ngrok-skip-browser-warning': '1' }
+          });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const blob = await res.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          const w = window.open(blobUrl, '_blank');
+          if (w) return; // відкрили
+        } catch (e) {
+          console.log('pdf blob open failed:', e.message);
+        }
+      }
+
+      // 2) Фолбек: через Telegram WebApp або системний браузер
+      if (window.Telegram && Telegram.WebApp) {
+        Telegram.WebApp.openLink(u.toString(), { try_instant_view: false });
+      } else {
+        window.open(u.toString(), '_blank');
+      }
+    }
+
+    document.getElementById('create').onclick = createInvoice;
+    document.getElementById('openPdf').onclick = () => openPdf(lastInvoiceId, false);
+    document.getElementById('downloadPdf').onclick = () => openPdf(lastInvoiceId, true);
+  </script>
 </body>
 </html>
