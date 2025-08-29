@@ -70,9 +70,11 @@
   <div class="toast" id="toast"></div>
 
   <script>
+    // Якщо MiniApp відкрито з іншого походження, зафіксуй тут свій порт, напр.:
+    // const API = "http://127.0.0.1:8081";
     const API = (window.API_BASE_URL) || (location.origin);
-    if (window.Telegram && Telegram.WebApp) { Telegram.WebApp.ready(); Telegram.WebApp.expand(); }
 
+    if (window.Telegram && Telegram.WebApp) { Telegram.WebApp.ready(); Telegram.WebApp.expand(); }
     let lastInvoiceId = null;
 
     function urlWithBypass(u){
@@ -153,8 +155,7 @@
     async function openPdf(invId, download=false){
       if (!invId) return;
       const pdfUrl = urlWithBypass(API + `/api/invoices/${encodeURIComponent(invId)}/pdf${download ? '/download' : ''}`);
-      // Попередньо відкриємо вікно (краще для iOS/TG WebView), щоб не заблокувало:
-      const w = window.open('about:blank', '_blank', 'noopener');
+      const w = window.open('about:blank', '_blank', 'noopener'); // для iOS/TG
       try{
         const res = await fetch(pdfUrl, { headers: { 'ngrok-skip-browser-warning':'1' }});
         if(!res.ok) throw new Error('HTTP '+res.status);
@@ -163,7 +164,6 @@
         if (w) { w.location = blobUrl; return; }
         window.open(blobUrl, '_blank');
       }catch(e){
-        // фолбек: напряму
         if (window.Telegram && Telegram.WebApp) {
           Telegram.WebApp.openLink(pdfUrl, { try_instant_view:false });
         } else {
