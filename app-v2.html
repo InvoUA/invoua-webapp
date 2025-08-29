@@ -1,86 +1,50 @@
 <!doctype html>
 <html lang="uk">
 <head>
-  <meta charset="utf-8">
-  <title>InvoUA — рахунок за 60 секунд</title>
+  <meta charset="utf-8" />
+  <title>InvoUA MiniApp</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    :root { --gap: 10px; }
-    body { font-family: system-ui, -apple-system, Arial, sans-serif; margin: 0; padding: 14px; }
-    h1 { font-size: 20px; margin: 0 0 12px 0; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); }
-    label { font-size:12px; color:#444; }
-    input, select { width:100%; padding:8px; border:1px solid #ccc; border-radius:8px; }
-    table { width:100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { border:1px solid #ddd; padding:8px; font-size:14px; }
-    th { background:#f8f8f8; text-align:left; }
-    .btns { margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; }
-    button { padding:10px 14px; border:0; border-radius:999px; background:#0a84ff; color:#fff; font-weight:600; cursor:pointer; }
-    button.secondary { background:#eee; color:#222; }
-    .toast { margin-top:10px; font-size:13px; }
-    .ok { color:#0a0; }
-    .err { color:#c00; }
+    body{font-family:system-ui,-apple-system,Arial,sans-serif;margin:0;padding:14px}
+    h1{font-size:20px;margin:0 0 12px 0}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    label{font-size:12px;color:#444}
+    input{width:100%;padding:8px;border:1px solid #ccc;border-radius:8px}
+    table{width:100%;border-collapse:collapse;margin-top:10px}
+    th,td{border:1px solid #ddd;padding:8px;font-size:14px}
+    th{text-align:left;background:#f8f8f8}
+    .btns{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap}
+    button{padding:10px 14px;border:0;border-radius:999px;background:#0a84ff;color:#fff;font-weight:600;cursor:pointer}
+    button.secondary{background:#eee;color:#222}
+    .muted{color:#666;font-size:12px}
+    .toast{margin-top:10px;font-size:13px}
+    .ok{color:#0a0}.err{color:#c00}
+    #afterCreate{display:none}
   </style>
 </head>
 <body>
-  <h1>InvoUA — рахунок за 60 секунд</h1>
+  <h1>InvoUA — рахунок</h1>
 
   <div class="grid">
-    <div>
-      <label>Продавець (Назва)</label>
-      <input id="sellerName" placeholder="ТОВ «Компанія»" />
-    </div>
-    <div>
-      <label>ЄДРПОУ (опц.)</label>
-      <input id="sellerEdrpou" placeholder="12345678" />
-    </div>
-    <div>
-      <label>IBAN (опц.)</label>
-      <input id="sellerIban" placeholder="UA..." />
-    </div>
-    <div>
-      <label>Банк (опц.)</label>
-      <input id="sellerBank" placeholder="АТ «Банк»" />
-    </div>
-    <div>
-      <label>Адреса (опц.)</label>
-      <input id="sellerAddress" placeholder="м. Київ, вул..." />
-    </div>
-    <div>
-      <label>Тел./email (опц.)</label>
-      <input id="sellerContact" placeholder="+380..., info@example.com" />
-    </div>
+    <div><label>Продавець</label><input id="sellerName" placeholder="ТОВ «Компанія»" /></div>
+    <div><label>ЄДРПОУ</label><input id="sellerEdrpou" placeholder="12345678" /></div>
+    <div><label>IBAN</label><input id="sellerIban" placeholder="UA..." /></div>
+    <div><label>Банк</label><input id="sellerBank" placeholder="АТ «Банк»" /></div>
+    <div><label>Адреса</label><input id="sellerAddress" placeholder="м. Київ, вул..." /></div>
+    <div><label>Тел./email</label><input id="sellerContact" placeholder="+380..., info@example.com" /></div>
   </div>
 
   <div class="grid" style="margin-top:10px">
-    <div>
-      <label>Покупець (Назва)</label>
-      <input id="buyerName" placeholder="ТОВ «Клієнт»" />
-    </div>
-    <div>
-      <label>ЄДРПОУ (опц.)</label>
-      <input id="buyerEdrpou" placeholder="87654321" />
-    </div>
-    <div>
-      <label>Адреса (опц.)</label>
-      <input id="buyerAddress" placeholder="м. Львів, вул..." />
-    </div>
-    <div>
-      <label>Контакт (опц.)</label>
-      <input id="buyerContact" placeholder="ІПН/Телефон/Особа" />
-    </div>
-    <div>
-      <label>Номер рахунку (опц.)</label>
-      <input id="invNumber" placeholder="Авто, якщо пусто" />
-    </div>
-    <div>
-      <label>Дата (опц.)</label>
-      <input id="invDate" placeholder="2025-08-29" />
-    </div>
+    <div><label>Покупець</label><input id="buyerName" placeholder="ТОВ «Клієнт»" /></div>
+    <div><label>ЄДРПОУ</label><input id="buyerEdrpou" placeholder="87654321" /></div>
+    <div><label>Адреса</label><input id="buyerAddress" placeholder="м. Львів, вул..." /></div>
+    <div><label>Контакт</label><input id="buyerContact" placeholder="Особа/Телефон" /></div>
+    <div><label>Номер рахунку</label><input id="invNumber" placeholder="Авто, якщо пусто" /></div>
+    <div><label>Дата</label><input id="invDate" placeholder="2025-08-29" /></div>
   </div>
 
   <table id="items">
-    <thead><tr><th>Поз.</th><th>Назва</th><th>К-сть</th><th>Ціна</th><th>Од.</th></tr></thead>
+    <thead><tr><th>#</th><th>Назва</th><th>К-сть</th><th>Ціна</th><th>Од.</th></tr></thead>
     <tbody>
       <tr>
         <td>1</td>
@@ -93,18 +57,9 @@
   </table>
 
   <div class="grid" style="margin-top:10px">
-    <div>
-      <label>Валюта</label>
-      <input id="currency" value="UAH" />
-    </div>
-    <div>
-      <label>ПДВ % (опц.)</label>
-      <input id="vatRate" type="number" step="0.01" placeholder="0 або 20" />
-    </div>
-    <div style="grid-column: 1 / span 2">
-      <label>Примітка (опц.)</label>
-      <input id="note" placeholder="Дякуємо за співпрацю" />
-    </div>
+    <div><label>Валюта</label><input id="currency" value="UAH" /></div>
+    <div><label>ПДВ %</label><input id="vatRate" type="number" step="0.01" placeholder="0 або 20" /></div>
+    <div style="grid-column:1 / span 2"><label>Примітка</label><input id="note" placeholder="Дякуємо за співпрацю" /></div>
   </div>
 
   <div class="btns">
@@ -113,45 +68,31 @@
     <button id="downloadPdf" class="secondary" disabled>Завантажити PDF</button>
   </div>
 
-  <div class="toast" id="toast"></div>
+  <div id="afterCreate" class="muted">Рахунок створено. Тепер можна відкрити або завантажити PDF.</div>
 
   <script>
     const API = (window.API_BASE_URL) || (location.origin);
-
-    if (window.Telegram && Telegram.WebApp) {
-      Telegram.WebApp.ready();
-      Telegram.WebApp.expand();
-    }
+    if (window.Telegram && Telegram.WebApp) { Telegram.WebApp.ready(); Telegram.WebApp.expand(); }
 
     let lastInvoiceId = null;
 
-    function withBypass(u) {
-      const url = new URL(u);
-      url.searchParams.set('ngrok-skip-browser-warning', '1');
+    function urlWithBypass(u){
+      const url = new URL(u, API);
+      url.searchParams.set('ngrok-skip-browser-warning','1');
       return url.toString();
     }
-    function logToast(msg, ok=false) {
-      const el = document.getElementById('toast');
-      el.className = 'toast ' + (ok ? 'ok' : 'err');
-      el.textContent = msg;
-    }
-    function readForm() {
+    function readForm(){
       const q = s => document.querySelector(s);
-
       const seller = {
         name: q('#sellerName').value.trim(),
         edrpou: q('#sellerEdrpou').value.trim() || null,
         iban: q('#sellerIban').value.trim() || null,
         bank: q('#sellerBank').value.trim() || null,
         address: q('#sellerAddress').value.trim() || null,
-        phone: null,
-        email: null
+        phone: null, email: null
       };
-      const contact = q('#sellerContact').value.trim();
-      if (contact) {
-        if (contact.includes('@')) seller.email = contact;
-        else seller.phone = contact;
-      }
+      const sc = q('#sellerContact').value.trim();
+      if (sc){ if (sc.includes('@')) seller.email = sc; else seller.phone = sc; }
 
       const buyer = {
         name: q('#buyerName').value.trim(),
@@ -161,17 +102,17 @@
       };
 
       const items = [];
-      document.querySelectorAll('#items tbody tr').forEach(tr => {
-        const tds = tr.querySelectorAll('td');
-        const name = tds[1].querySelector('input').value.trim();
-        const qty  = parseFloat(tds[2].querySelector('input').value);
-        const price= parseFloat(tds[3].querySelector('input').value);
-        const unit = tds[4].querySelector('input').value.trim() || 'шт';
-        if (name && qty>0) items.push({ name, qty, price, unit });
+      document.querySelectorAll('#items tbody tr').forEach(tr=>{
+        const t=tr.querySelectorAll('td');
+        const name=t[1].querySelector('input').value.trim();
+        const qty =parseFloat(t[2].querySelector('input').value);
+        const price=parseFloat(t[3].querySelector('input').value);
+        const unit=t[4].querySelector('input').value.trim()||'шт';
+        if(name && qty>0) items.push({name,qty,price,unit});
       });
 
       const vatRaw = q('#vatRate').value.trim();
-      const vat = vatRaw === '' ? null : parseFloat(vatRaw);
+      const vat = vatRaw==='' ? null : parseFloat(vatRaw);
 
       return {
         number: q('#invNumber').value.trim() || null,
@@ -179,69 +120,56 @@
         seller, buyer, items,
         currency: q('#currency').value.trim() || 'UAH',
         note: q('#note').value.trim() || null,
-        vat_rate: isNaN(vat) ? null : vat
+        vat_rate: isNaN(vat)? null : vat
       };
     }
 
-    async function createInvoice() {
-      try {
-        logToast('Створюю рахунок...', true);
+    async function createInvoice(){
+      try{
         const body = readForm();
-        const url = new URL(API + '/api/invoices');
-        // ⚠ Щоб Playwright був «лінивим», НЕ форсимо рендер тут (false).
-        // Хочеш миттєвий PDF — змініть на true.
-        url.searchParams.set('render', 'false');
-
-        const res = await fetch(withBypass(url.toString()), {
-          method: 'POST',
-          headers: { 'content-type': 'application/json', 'ngrok-skip-browser-warning': '1' },
+        const url = new URL('/api/invoices', API);
+        url.searchParams.set('render', 'false'); // не форсимо PDF, хай генерується при відкритті
+        const res = await fetch(urlWithBypass(url), {
+          method:'POST',
+          headers:{'content-type':'application/json','ngrok-skip-browser-warning':'1'},
           body: JSON.stringify(body)
         });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
+        if(!res.ok) throw new Error('HTTP '+res.status);
         const data = await res.json();
-
         lastInvoiceId = data.id;
         document.getElementById('openPdf').disabled = false;
         document.getElementById('downloadPdf').disabled = false;
-
-        logToast('Готово. Можна відкривати/завантажувати PDF', true);
-      } catch (e) {
-        console.error(e);
-        logToast('Помилка створення: ' + e.message, false);
+        document.getElementById('afterCreate').style.display = 'block';
+      }catch(e){
+        alert('Помилка створення рахунку: ' + e.message);
       }
     }
 
-    async function openPdf(invId, download=false) {
-      if (!invId) return;
-      const u = new URL(API + `/api/invoices/${encodeURIComponent(invId)}/pdf`);
-      u.searchParams.set('disposition', download ? 'attachment':'inline');
-      u.searchParams.set('ngrok-skip-browser-warning', '1');
-
-      if (!download) {
-        try {
-          const res = await fetch(withBypass(u.toString()), {
-            headers: { 'ngrok-skip-browser-warning': '1' }
-          });
-          if (!res.ok) throw new Error('HTTP ' + res.status);
-          const blob = await res.blob();
-          const blobUrl = URL.createObjectURL(blob);
-          const w = window.open(blobUrl, '_blank');
-          if (w) return;
-        } catch (e) {
-          console.log('pdf blob open failed:', e.message);
+    // PDF open as BLOB (ngrok-landing bypass) + Safari/TG-safe open
+    async function openPdfBlob(invId, download=false){
+      const pdfUrl = urlWithBypass(API + `/api/invoices/${encodeURIComponent(invId)}/pdf${download ? '/download' : ''}`);
+      // попередньо відкриємо вікно (для Safari/Telegram WebView), щоб не заблокувало
+      const win = window.open('about:blank', '_blank', 'noopener');
+      try{
+        const res = await fetch(pdfUrl, { headers: { 'ngrok-skip-browser-warning':'1' }});
+        if(!res.ok) throw new Error('HTTP '+res.status);
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        if (win) { win.location = blobUrl; return; }
+        window.open(blobUrl, '_blank');
+      }catch(e){
+        // фолбек: відкрити напряму (у WebApp або браузері)
+        if (window.Telegram && Telegram.WebApp) {
+          Telegram.WebApp.openLink(pdfUrl, { try_instant_view:false });
+        } else {
+          window.open(pdfUrl, '_blank');
         }
-      }
-
-      if (window.Telegram && Telegram.WebApp) {
-        Telegram.WebApp.openLink(u.toString(), { try_instant_view: false });
-      } else {
-        window.open(u.toString(), '_blank');
       }
     }
 
     document.getElementById('create').onclick = createInvoice;
-    document.getElementById('openPdf').onclick = () => openPdf(lastInvoiceId, false);
-    document.getElementById('downloadPdf').onclick = () => openPdf(lastInvoiceId, true);
+    document.getElementById('openPdf').onclick = ()=> openPdfBlob(lastInvoiceId, false);
+    document.getElementById('downloadPdf').onclick = ()=> openPdfBlob(lastInvoiceId, true);
   </script>
 </body>
 </html>
