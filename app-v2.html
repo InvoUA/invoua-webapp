@@ -17,7 +17,6 @@
     .btns { margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; }
     button { padding:10px 14px; border:0; border-radius:999px; background:#0a84ff; color:#fff; font-weight:600; cursor:pointer; }
     button.secondary { background:#eee; color:#222; }
-    .muted { color:#666; font-size:12px; }
     .toast { margin-top:10px; font-size:13px; }
     .ok { color:#0a0; }
     .err { color:#c00; }
@@ -117,11 +116,8 @@
   <div class="toast" id="toast"></div>
 
   <script>
-    // ==== Налаштування ====
-    // Якщо в .env/лаунчері інший домен — підстав свій
     const API = (window.API_BASE_URL) || (location.origin);
 
-    // Telegram WebApp розгорнути
     if (window.Telegram && Telegram.WebApp) {
       Telegram.WebApp.ready();
       Telegram.WebApp.expand();
@@ -192,8 +188,9 @@
         logToast('Створюю рахунок...', true);
         const body = readForm();
         const url = new URL(API + '/api/invoices');
-        // Хочеш відразу PDF? → true
-        url.searchParams.set('render', 'true');
+        // ⚠ Щоб Playwright був «лінивим», НЕ форсимо рендер тут (false).
+        // Хочеш миттєвий PDF — змініть на true.
+        url.searchParams.set('render', 'false');
 
         const res = await fetch(withBypass(url.toString()), {
           method: 'POST',
@@ -221,7 +218,6 @@
       u.searchParams.set('ngrok-skip-browser-warning', '1');
 
       if (!download) {
-        // 1) Спроба через BLOB (краще для Safari/TG WebView)
         try {
           const res = await fetch(withBypass(u.toString()), {
             headers: { 'ngrok-skip-browser-warning': '1' }
@@ -230,13 +226,12 @@
           const blob = await res.blob();
           const blobUrl = URL.createObjectURL(blob);
           const w = window.open(blobUrl, '_blank');
-          if (w) return; // відкрили
+          if (w) return;
         } catch (e) {
           console.log('pdf blob open failed:', e.message);
         }
       }
 
-      // 2) Фолбек: через Telegram WebApp або системний браузер
       if (window.Telegram && Telegram.WebApp) {
         Telegram.WebApp.openLink(u.toString(), { try_instant_view: false });
       } else {
