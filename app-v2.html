@@ -71,9 +71,7 @@
 
   <script>
     // Єдине джерело правди для API:
-    // 1) ?api=... у URL,
-    // 2) window.API_BASE_URL, якщо задано ззовні,
-    // 3) запасний варіант: локальний порт (поміняй, якщо треба).
+    // 1) ?api=... у URL; 2) window.API_BASE_URL; 3) дефолт локального порту
     const API =
       new URLSearchParams(location.search).get('api') ||
       window.API_BASE_URL ||
@@ -159,8 +157,7 @@
     async function openPdf(invId, download=false){
       if (!invId) return;
       const pdfUrl = urlWithBypass(API + `/api/invoices/${encodeURIComponent(invId)}/pdf${download ? '/download' : ''}`);
-      // попередньо відкриваємо вікно — так iOS/TG WebView не блокує
-      const w = window.open('about:blank', '_blank', 'noopener');
+      const w = window.open('about:blank', '_blank', 'noopener'); // для iOS/TG
       try{
         const res = await fetch(pdfUrl, { headers: { 'ngrok-skip-browser-warning':'1' }});
         if(!res.ok) throw new Error('HTTP '+res.status);
