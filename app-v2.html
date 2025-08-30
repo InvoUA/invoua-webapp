@@ -16,7 +16,6 @@
     .btns{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap}
     button{padding:10px 14px;border:0;border-radius:999px;background:#0a84ff;color:#fff;font-weight:600;cursor:pointer}
     button.secondary{background:#eee;color:#222}
-    .muted{color:#666;font-size:12px}
     .toast{margin-top:10px;font-size:13px}
     .ok{color:#0a0}.err{color:#c00}
   </style>
@@ -39,7 +38,7 @@
     <div><label>Адреса</label><input id="buyerAddress" placeholder="м. Львів, вул..." /></div>
     <div><label>Контакт</label><input id="buyerContact" placeholder="Особа/Телефон" /></div>
     <div><label>Номер рахунку</label><input id="invNumber" placeholder="Авто, якщо пусто" /></div>
-    <div><label>Дата</label><input id="invDate" placeholder="2025-08-29" /></div>
+    <div><label>Дата</label><input id="invDate" placeholder="2025-08-30" /></div>
   </div>
 
   <table id="items">
@@ -70,8 +69,6 @@
   <div class="toast" id="toast"></div>
 
   <script>
-    // Єдине джерело правди для API:
-    // 1) ?api=... у URL; 2) window.API_BASE_URL; 3) дефолт локального порту
     const API =
       new URLSearchParams(location.search).get('api') ||
       window.API_BASE_URL ||
@@ -157,20 +154,28 @@
     async function openPdf(invId, download=false){
       if (!invId) return;
       const pdfUrl = urlWithBypass(API + `/api/invoices/${encodeURIComponent(invId)}/pdf${download ? '/download' : ''}`);
-      const w = window.open('about:blank', '_blank', 'noopener'); // для iOS/TG
+
       try{
         const res = await fetch(pdfUrl, { headers: { 'ngrok-skip-browser-warning':'1' }});
         if(!res.ok) throw new Error('HTTP '+res.status);
-        const blob = await res.blob();
-        const blobUrl = URL.createObjectURL(blob);
-        if (w) { w.location = blobUrl; return; }
-        window.open(blobUrl, '_blank');
-      }catch(e){
-        if (window.Telegram && Telegram.WebApp) {
-          Telegram.WebApp.openLink(pdfUrl, { try_instant_view:false });
+        const ct = (res.headers.get('content-type') || '').toLowerCase();
+
+        if (ct.includes('application/pdf')) {
+          const blob = await res.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          window.open(blobUrl, '_blank');
         } else {
-          window.open(pdfUrl, '_blank');
+          // фолбек на HTML (наприклад, якщо PDF не згенерувався і бек дав HTML)
+          const htmlUrl = urlWithBypass(API + `/api/invoices/${encodeURIComponent(invId)}/html`);
+          if (window.Telegram && Telegram.WebApp) {
+            Telegram.WebApp.openLink(htmlUrl, { try_instant_view:false });
+          } else {
+            window.open(htmlUrl, '_blank');
+          }
+          toast('PDF тимчасово недоступний — відкрив HTML версію', false);
         }
+      }catch(e){
+        toast('Помилка відкриття: '+e.message, false);
       }
     }
 
