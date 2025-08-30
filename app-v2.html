@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="uk">
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8" />
   <title>InvoUA MiniApp</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
@@ -70,9 +70,14 @@
   <div class="toast" id="toast"></div>
 
   <script>
-    // Якщо MiniApp відкрито з іншого походження, зафіксуй тут свій порт, напр.:
-    // const API = "http://127.0.0.1:8081";
-    const API = (window.API_BASE_URL) || (location.origin);
+    // Єдине джерело правди для API:
+    // 1) ?api=... у URL,
+    // 2) window.API_BASE_URL, якщо задано ззовні,
+    // 3) запасний варіант: локальний порт (поміняй, якщо треба).
+    const API =
+      new URLSearchParams(location.search).get('api') ||
+      window.API_BASE_URL ||
+      "http://127.0.0.1:8081";
 
     if (window.Telegram && Telegram.WebApp) { Telegram.WebApp.ready(); Telegram.WebApp.expand(); }
     let lastInvoiceId = null;
@@ -135,7 +140,6 @@
         toast('Створюю рахунок…', true);
         const body = readForm();
         const url = new URL('/api/invoices', API);
-        url.searchParams.set('render', 'false');
         const res = await fetch(urlWithBypass(url), {
           method:'POST',
           headers:{'content-type':'application/json','ngrok-skip-browser-warning':'1'},
@@ -155,7 +159,8 @@
     async function openPdf(invId, download=false){
       if (!invId) return;
       const pdfUrl = urlWithBypass(API + `/api/invoices/${encodeURIComponent(invId)}/pdf${download ? '/download' : ''}`);
-      const w = window.open('about:blank', '_blank', 'noopener'); // для iOS/TG
+      // попередньо відкриваємо вікно — так iOS/TG WebView не блокує
+      const w = window.open('about:blank', '_blank', 'noopener');
       try{
         const res = await fetch(pdfUrl, { headers: { 'ngrok-skip-browser-warning':'1' }});
         if(!res.ok) throw new Error('HTTP '+res.status);
