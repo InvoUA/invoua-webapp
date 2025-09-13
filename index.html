@@ -24,7 +24,6 @@
     .hidden { display:none; }
   </style>
 
-  <!-- лише jsPDF -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
@@ -118,7 +117,6 @@
     return await r.json();
   }
 
-  // --- PDF без html2canvas: з JSON ---
   function money(x){ return (Number(x)||0).toFixed(2); }
 
   async function fetchInvoiceJson(id){
@@ -135,34 +133,24 @@
     const pdf = new jsPDF('p','mm','a4');
     const M = 12, W = pdf.internal.pageSize.getWidth() - M*2;
 
-    // Заголовок
     pdf.setFontSize(16); pdf.setFont('helvetica','bold');
     pdf.text(`Рахунок ${doc.invoice.number || ''}`, M, 18);
     pdf.setFontSize(10); pdf.setFont('helvetica','normal');
     pdf.text(`Дата: ${doc.invoice.issue_date || ''}`, M, 24);
-    if (doc.invoice.due_date) pdf.text(`Оплатити до: ${doc.invoice.due_date}`, M+60, 24);
 
-    // Продавець / Покупець
     const s = doc.seller || {}, b = doc.buyer || {};
     let y = 32;
     pdf.setFont('helvetica','bold'); pdf.text('Продавець', M, y);
     pdf.setFont('helvetica','normal');
-    const sellerLines = [
-      s.name, s.tax_id ? `ЄДРПОУ/ІПН: ${s.tax_id}` : '',
-      s.iban ? `IBAN: ${s.iban}` : '', s.address || ''
-    ].filter(Boolean);
+    const sellerLines = [s.name, s.tax_id?`ЄДРПОУ/ІПН: ${s.tax_id}`:'', s.iban?`IBAN: ${s.iban}`:'', s.address||''].filter(Boolean);
     sellerLines.forEach((t,i)=> pdf.text(String(t), M, y+6+i*5));
 
     pdf.setFont('helvetica','bold'); pdf.text('Покупець', M+W/2, y);
     pdf.setFont('helvetica','normal');
-    const buyerLines = [
-      b.name, b.tax_id ? `ЄДРПОУ/ІПН: ${b.tax_id}` : '',
-      b.iban ? `IBAN: ${b.iban}` : '', b.address || ''
-    ].filter(Boolean);
+    const buyerLines  = [b.name, b.tax_id?`ЄДРПОУ/ІПН: ${b.tax_id}`:'', b.iban?`IBAN: ${b.iban}`:'', b.address||''].filter(Boolean);
     buyerLines.forEach((t,i)=> pdf.text(String(t), M+W/2, y+6+i*5));
     y += 6 + Math.max(sellerLines.length, buyerLines.length)*5 + 6;
 
-    // Таблиця позицій
     const cols = [
       { key:'name',  title:'Найменування', w:86 },
       { key:'qty',   title:'К-сть',         w:20 },
@@ -177,40 +165,33 @@
     (doc.items||[]).forEach(it=>{
       x = M;
       const row = [
-        String(it.name||''),
-        String(it.qty||''),
-        String(it.unit||''),
-        money(it.price||'0'),
-        money(it.line_total || (Number(it.qty||1)*Number(it.price||0)))
+        String(it.name||''), String(it.qty||''), String(it.unit||''),
+        money(it.price||'0'), money(it.line_total || (Number(it.qty||1)*Number(it.price||0)))
       ];
       row.forEach((v,i)=>{
         const cw = cols[i].w;
-        // перенос довгого тексту в межах комірки
         const lines = pdf.splitTextToSize(v, cw-2);
         lines.forEach((ln,j)=> pdf.text(ln, x+1, y + j*5));
         y += (lines.length-1)*5;
         x += cw;
       });
       y += 6;
-      // нова сторінка, якщо треба
       if (y > 280){ pdf.addPage(); y = 20; }
     });
 
-    // Підсумки
     y += 2;
     const cur = doc.invoice.currency || 'UAH';
     pdf.text(`Разом без ПДВ: ${money(doc.invoice.subtotal)} ${cur}`, M+W/2, y); y += 6;
     pdf.text(`ПДВ: ${money(doc.invoice.tax_total)} ${cur}`, M+W/2, y); y += 6;
     pdf.setFont('helvetica','bold');
     pdf.text(`До оплати: ${money(doc.invoice.total)} ${cur}`, M+W/2, y); y += 8;
-    pdf.setFont('helvetica','normal');
 
     if (doc.invoice.notes){
+      pdf.setFont('helvetica','normal');
       pdf.text('Примітки:', M, y); y += 5;
       pdf.text(pdf.splitTextToSize(String(doc.invoice.notes), W), M, y);
     }
 
-    // Відкриваємо як blob:
     const url = pdf.output('bloburl');
     if (window.Telegram?.WebApp?.openLink) {
       window.Telegram.WebApp.openLink(url);
@@ -221,7 +202,6 @@
     }
   }
 
-  // UI
   $('#save').onclick = async () => {
     try{
       const res = await saveInvoice();
@@ -229,13 +209,11 @@
       $('#toast').classList.remove('err'); $('#toast').classList.add('ok');
       $('#toast').textContent = `Збережено. № ${res.number}. Сума: ${res.total}`;
 
-      // HTML
       $('#btnHtml').onclick = () => {
         const url = res.public_url + (res.public_url.includes('?') ? '&' : '?') + 'ngrok-skip-browser-warning=1';
         (window.Telegram?.WebApp?.openLink ? window.Telegram.WebApp.openLink(url) : window.open(url, '_blank'));
       };
 
-      // PDF: з JSON на клієнті
       $('#btnPdf').onclick  = async () => {
         try {
           const id = res.id || res.invoice_id;
