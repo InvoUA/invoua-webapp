@@ -165,7 +165,6 @@
           const blobUrl = URL.createObjectURL(blob);
           window.open(blobUrl, '_blank');
         } else {
-          // фолбек на HTML (наприклад, якщо PDF не згенерувався і бек дав HTML)
           const htmlUrl = urlWithBypass(API + `/api/invoices/${encodeURIComponent(invId)}/html`);
           if (window.Telegram && Telegram.WebApp) {
             Telegram.WebApp.openLink(htmlUrl, { try_instant_view:false });
