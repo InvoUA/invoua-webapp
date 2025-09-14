@@ -27,14 +27,16 @@
     code { background:#f0f3f6; padding:2px 6px; border-radius:6px; }
     .right { text-align:right; }
   </style>
-  <!-- міст з публічними базовими адресами -->
-  <script src="./webapp_bridge.js"></script>
+
+  <!-- 1) базові адреси -->
+  <script src="./webapp_env.js"></script>
+  <!-- 2) міст до Telegram WebApp (опційно: працює, коли сторінка відкрито в Telegram) -->
+  <script src="./webapp_tg_bridge.js"></script>
 </head>
 <body>
   <div class="card">
     <h1>Новий рахунок</h1>
 
-    <!-- Діагностика середовища -->
     <div class="diag">
       <div class="muted">Діагностика підключення:</div>
       <div>API_BASE: <code id="apiBase">(визначаю...)</code></div>
@@ -111,14 +113,12 @@
   </div>
 
 <script>
-/* ========= helpers ========= */
 function $(sel){ return document.querySelector(sel); }
 function $all(sel){ return [...document.querySelectorAll(sel)]; }
 function trimSlash(s){ return (s||"").replace(/\/+$/,''); }
 
 function resolveApiBase() {
   let api = (window.API_BASE || "").trim();
-  // фолбек для локального запуску без webapp_bridge.js
   if (!api && (location.hostname === "127.0.0.1" || location.hostname === "localhost")) {
     api = "http://127.0.0.1:8081";
   }
@@ -130,11 +130,7 @@ function showEnv() {
   const app = trimSlash(window.APP_BASE || location.origin);
   $("#apiBase").textContent = api || "(не задано)";
   $("#appBase").textContent = app || "(невідомо)";
-  if (!api) {
-    $("#diagMsg").textContent = "API_BASE не знайдено. Переконайтесь, що webapp_bridge.js заповнений або запустіть локально API на 8081.";
-  } else {
-    $("#diagMsg").textContent = "";
-  }
+  $("#diagMsg").textContent = api ? "" : "API_BASE не знайдено. Переконайтесь, що webapp_env.js заповнений або запустіть локально API на 8081.";
 }
 
 function addRow(name="", qty="1", unit="шт", price="0,00") {
@@ -149,11 +145,9 @@ function addRow(name="", qty="1", unit="шт", price="0,00") {
 }
 addRow();
 
-/* ========= diagnostics ========= */
 function openHealth(){
   const api = resolveApiBase();
   if (!api) { alert("API_BASE не заданий"); return; }
-  // Відкриваємо /health в новій вкладці, щоб пройти «consent» сторінку ngrok.
   window.open(api + "/health", "_blank");
 }
 
@@ -165,7 +159,7 @@ async function pingApi(){
     const r = await fetch(api + "/health", {cache:"no-store"});
     const ctype = (r.headers.get("content-type")||"").toLowerCase();
     if (!ctype.includes("application/json")) {
-      $("#diagMsg").textContent = "API повернув не JSON (ймовірно, це «welcome/consent» сторінка ngrok). Натисніть «Відкрити health», погодьтеся і спробуйте ще раз.";
+      $("#diagMsg").textContent = "API повернув не JSON (ймовірно, «welcome/consent» сторінка ngrok). Натисніть «Відкрити health», погодьтеся, потім «Ping API».";
       return;
     }
     const j = await r.json();
@@ -178,18 +172,13 @@ async function pingApi(){
 async function createInvoice(){
   const status = $("#status");
   const api = resolveApiBase();
-  if (!api) { status.textContent = "API_BASE не заданий (перевір webapp_bridge.js)."; return; }
+  if (!api) { status.textContent = "API_BASE не заданий (перевір webapp_env.js)."; return; }
 
   status.textContent = "Надсилаю дані…";
 
   const items = $all('#items tbody tr').map(tr => {
     const [nameEl, qtyEl, unitEl, priceEl] = tr.querySelectorAll('input');
-    return {
-      name: nameEl.value,
-      qty: qtyEl.value,
-      unit: unitEl.value,
-      price: priceEl.value
-    };
+    return { name: nameEl.value, qty: qtyEl.value, unit: unitEl.value, price: priceEl.value };
   });
 
   const payload = {
@@ -203,24 +192,17 @@ async function createInvoice(){
       tax_id: $("#buyer_tax").value, email: $("#buyer_email").value
     },
     items,
-    invoice: {
-      currency: $("#currency").value,
-      notes: $("#notes").value,
-      place_city: $("#place_city").value
-    }
+    invoice: { currency: $("#currency").value, notes: $("#notes").value, place_city: $("#place_city").value }
   };
 
   try {
     const r = await fetch(api + "/api/invoices", {
-      method: "POST",
-      headers: { "Content-Type":"application/json" },
-      body: JSON.stringify(payload)
+      method: "POST", headers: { "Content-Type":"application/json" }, body: JSON.stringify(payload)
     });
 
-    // окрема перевірка на «consent»/HTML від ngrok
     const ctype = (r.headers.get("content-type")||"").toLowerCase();
     if (!ctype.includes("application/json")) {
-      status.textContent = "API повернув не JSON (можливо, це «welcome/consent» від ngrok). Натисніть «Відкрити health», погодьтеся і натисніть «Створити рахунок» ще раз.";
+      status.textContent = "API повернув не JSON (можливо, welcome/consent від ngrok). Натисніть «Відкрити health», погодьтеся та повторіть.";
       return;
     }
 
@@ -232,12 +214,10 @@ async function createInvoice(){
     const pdf = links.pdf ? (api + links.pdf) : (api + `/api/invoices/${id}/pdf?dl=1`);
     const html = links.html ? (api + links.html) : (api + `/api/invoices/${id}/html`);
 
-    const linksBox = $("#links");
-    linksBox.innerHTML = `
+    $("#links").innerHTML = `
       <a class="btn" href="${pdf}" target="_blank" download>⬇️ PDF</a>
       <a class="btn secondary" href="${html}" target="_blank">🔎 HTML</a>
     `;
-
     status.textContent = "Готово!";
   } catch (e) {
     status.textContent = "Помилка: " + (e.message || e);
