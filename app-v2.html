@@ -2,185 +2,158 @@
 <html lang="uk">
 <head>
   <meta charset="utf-8" />
-  <title>InvoUA MiniApp</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Створення рахунку</title>
   <style>
-    body{font-family:system-ui,-apple-system,Arial,sans-serif;margin:0;padding:14px}
-    h1{font-size:20px;margin:0 0 12px 0}
-    .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-    label{font-size:12px;color:#444}
-    input{width:100%;padding:8px;border:1px solid #ccc;border-radius:8px}
-    table{width:100%;border-collapse:collapse;margin-top:10px}
-    th,td{border:1px solid #ddd;padding:8px;font-size:14px}
-    th{text-align:left;background:#f8f8f8}
-    .btns{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap}
-    button{padding:10px 14px;border:0;border-radius:999px;background:#0a84ff;color:#fff;font-weight:600;cursor:pointer}
-    button.secondary{background:#eee;color:#222}
-    .toast{margin-top:10px;font-size:13px}
-    .ok{color:#0a0}.err{color:#c00}
+    body { font-family: system-ui, -apple-system, "Segoe UI", Arial; margin: 0; padding: 16px; background:#f7f7f8; }
+    .card { background:#fff; border-radius:14px; padding:16px; box-shadow: 0 2px 10px rgba(0,0,0,.06); max-width:900px; margin:0 auto; }
+    h1 { margin:0 0 12px 0; font-size:20px; }
+    fieldset { border:1px solid #eee; border-radius:10px; margin:12px 0; padding:12px; }
+    legend { padding:0 6px; color:#555; }
+    .row { display:grid; grid-template-columns: repeat(2,1fr); gap:10px; }
+    label { display:block; font-size:12px; color:#555; margin-bottom:4px; }
+    input, select { width:100%; padding:8px; border:1px solid #ddd; border-radius:8px; }
+    table { width:100%; border-collapse:collapse; margin-top:10px; }
+    th, td { border:1px solid #eee; padding:8px; }
+    tfoot td { border:none; }
+    .btn { background:#111; color:#fff; border:0; padding:10px 14px; border-radius:10px; cursor:pointer; }
+    .btn.secondary { background:#0a7cff; }
+    .muted { color:#777; font-size:12px; }
+    .links a { display:inline-block; margin-right:10px; }
   </style>
+  <script src="./webapp_bridge.js"></script>
 </head>
 <body>
-  <h1>InvoUA — рахунок</h1>
+  <div class="card">
+    <h1>Новий рахунок</h1>
 
-  <div class="grid">
-    <div><label>Продавець</label><input id="sellerName" placeholder="ТОВ «Компанія»" /></div>
-    <div><label>ЄДРПОУ</label><input id="sellerEdrpou" placeholder="12345678" /></div>
-    <div><label>IBAN</label><input id="sellerIban" placeholder="UA..." /></div>
-    <div><label>Банк</label><input id="sellerBank" placeholder="АТ «Банк»" /></div>
-    <div><label>Адреса</label><input id="sellerAddress" placeholder="м. Київ, вул..." /></div>
-    <div><label>Тел./email</label><input id="sellerContact" placeholder="+380..., info@example.com" /></div>
+    <fieldset>
+      <legend>Продавець</legend>
+      <div class="row">
+        <div><label>Назва</label><input id="seller_name"></div>
+        <div><label>Місто/адреса</label><input id="seller_addr"></div>
+        <div><label>IBAN</label><input id="seller_iban"></div>
+        <div><label>ЄДРПОУ/ІПН</label><input id="seller_tax"></div>
+        <div><label>Email</label><input id="seller_email"></div>
+        <div><label>Телефон</label><input id="seller_phone"></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Покупець</legend>
+      <div class="row">
+        <div><label>Назва</label><input id="buyer_name"></div>
+        <div><label>Адреса</label><input id="buyer_addr"></div>
+        <div><label>ЄДРПОУ/ІПН</label><input id="buyer_tax"></div>
+        <div><label>Email</label><input id="buyer_email"></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Позиції</legend>
+      <table id="items">
+        <thead><tr><th>Найменування</th><th>К-сть</th><th>Од.</th><th>Ціна</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <button class="btn secondary" onclick="addRow()">+ Додати позицію</button>
+      <div class="muted" style="margin-top:6px">Формат ціни: 1234,56</div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Налаштування</legend>
+      <div class="row">
+        <div><label>Валюта</label>
+          <select id="currency">
+            <option value="UAH">UAH</option>
+            <option value="USD">USD</option>
+            <option value="EUR">EUR</option>
+          </select>
+        </div>
+        <div><label>Коментар (примітки)</label><input id="notes"></div>
+        <div><label>Місто виписки</label><input id="place_city" placeholder="Київ"></div>
+      </div>
+    </fieldset>
+
+    <div style="display:flex; gap:8px; align-items:center; margin-top:10px">
+      <button class="btn" onclick="createInvoice()">Створити рахунок</button>
+      <span id="status" class="muted"></span>
+    </div>
+
+    <div id="links" class="links" style="margin-top:10px"></div>
   </div>
 
-  <div class="grid" style="margin-top:10px">
-    <div><label>Покупець</label><input id="buyerName" placeholder="ТОВ «Клієнт»" /></div>
-    <div><label>ЄДРПОУ</label><input id="buyerEdrpou" placeholder="87654321" /></div>
-    <div><label>Адреса</label><input id="buyerAddress" placeholder="м. Львів, вул..." /></div>
-    <div><label>Контакт</label><input id="buyerContact" placeholder="Особа/Телефон" /></div>
-    <div><label>Номер рахунку</label><input id="invNumber" placeholder="Авто, якщо пусто" /></div>
-    <div><label>Дата</label><input id="invDate" placeholder="2025-08-30" /></div>
-  </div>
+<script>
+function addRow(name="", qty="1", unit="шт", price="0,00") {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input value="${name}"></td>
+    <td><input value="${qty}" style="width:80px"></td>
+    <td><input value="${unit}" style="width:80px"></td>
+    <td><input value="${price}" style="width:120px"></td>
+    <td><button class="btn" onclick="this.closest('tr').remove()">×</button></td>`;
+  document.querySelector('#items tbody').appendChild(tr);
+}
+addRow();
 
-  <table id="items">
-    <thead><tr><th>#</th><th>Назва</th><th>К-сть</th><th>Ціна</th><th>Од.</th></tr></thead>
-    <tbody>
-      <tr>
-        <td>1</td>
-        <td><input placeholder="Послуга / товар" value="Послуги обліку" /></td>
-        <td><input type="number" step="0.01" value="1" /></td>
-        <td><input type="number" step="0.01" value="1000" /></td>
-        <td><input value="шт" /></td>
-      </tr>
-    </tbody>
-  </table>
+async function createInvoice() {
+  const status = document.getElementById('status');
+  status.textContent = "Надсилаю дані…";
 
-  <div class="grid" style="margin-top:10px">
-    <div><label>Валюта</label><input id="currency" value="UAH" /></div>
-    <div><label>ПДВ %</label><input id="vatRate" type="number" step="0.01" placeholder="0 або 20" /></div>
-    <div style="grid-column:1 / span 2"><label>Примітка</label><input id="note" placeholder="Дякуємо за співпрацю" /></div>
-  </div>
+  const items = [...document.querySelectorAll('#items tbody tr')].map(tr => {
+    const tds = tr.querySelectorAll('input');
+    return { name: tds[0].value, qty: tds[1].value, unit: tds[2].value, price: tds[3].value };
+  });
 
-  <div class="btns">
-    <button id="create">Створити рахунок</button>
-    <button id="openPdf" class="secondary" disabled>Відкрити PDF</button>
-    <button id="downloadPdf" class="secondary" disabled>Завантажити PDF</button>
-  </div>
-
-  <div class="toast" id="toast"></div>
-
-  <script>
-    const API =
-      new URLSearchParams(location.search).get('api') ||
-      window.API_BASE_URL ||
-      "http://127.0.0.1:8081";
-
-    if (window.Telegram && Telegram.WebApp) { Telegram.WebApp.ready(); Telegram.WebApp.expand(); }
-    let lastInvoiceId = null;
-
-    function urlWithBypass(u){
-      const url = new URL(u, API);
-      url.searchParams.set('ngrok-skip-browser-warning','1');
-      return url.toString();
+  const payload = {
+    seller: {
+      name: document.getElementById('seller_name').value,
+      address: document.getElementById('seller_addr').value,
+      iban: document.getElementById('seller_iban').value,
+      tax_id: document.getElementById('seller_tax').value,
+      email: document.getElementById('seller_email').value,
+      phone: document.getElementById('seller_phone').value
+    },
+    buyer: {
+      name: document.getElementById('buyer_name').value,
+      address: document.getElementById('buyer_addr').value,
+      tax_id: document.getElementById('buyer_tax').value,
+      email: document.getElementById('buyer_email').value
+    },
+    items,
+    invoice: {
+      currency: document.getElementById('currency').value,
+      notes: document.getElementById('notes').value,
+      place_city: document.getElementById('place_city').value
     }
-    function toast(msg, ok=true){
-      const el = document.getElementById('toast');
-      el.className = 'toast ' + (ok?'ok':'err');
-      el.textContent = msg;
-    }
-    function readForm(){
-      const q = s => document.querySelector(s);
-      const seller = {
-        name: q('#sellerName').value.trim(),
-        edrpou: q('#sellerEdrpou').value.trim() || null,
-        iban: q('#sellerIban').value.trim() || null,
-        bank: q('#sellerBank').value.trim() || null,
-        address: q('#sellerAddress').value.trim() || null,
-        phone: null, email: null
-      };
-      const sc = q('#sellerContact').value.trim();
-      if (sc){ if (sc.includes('@')) seller.email = sc; else seller.phone = sc; }
+  };
 
-      const buyer = {
-        name: q('#buyerName').value.trim(),
-        edrpou: q('#buyerEdrpou').value.trim() || null,
-        address: q('#buyerAddress').value.trim() || null,
-        contact: q('#buyerContact').value.trim() || null
-      };
+  const api = (window.API_BASE || "").replace(/\/+$/,'');
+  if (!api) { status.textContent = "API_BASE не заданий (webapp_bridge.js)."; return; }
 
-      const items = [];
-      document.querySelectorAll('#items tbody tr').forEach(tr=>{
-        const t=tr.querySelectorAll('td');
-        const name=t[1].querySelector('input').value.trim();
-        const qty =parseFloat(t[2].querySelector('input').value);
-        const price=parseFloat(t[3].querySelector('input').value);
-        const unit=t[4].querySelector('input').value.trim()||'шт';
-        if(name && qty>0) items.push({name,qty,price,unit});
-      });
+  try {
+    const r = await fetch(api + "/api/invoices", {
+      method: "POST",
+      headers: { "Content-Type":"application/json" },
+      body: JSON.stringify(payload)
+    });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const data = await r.json();
 
-      const vatRaw = q('#vatRate').value.trim();
-      const vat = vatRaw==='' ? null : parseFloat(vatRaw);
+    const links = data.links || {};
+    const id = data.id;
+    const pdf = links.pdf ? (api + links.pdf) : (api + `/api/invoices/${id}/pdf?dl=1`);
+    const html = links.html ? (api + links.html) : (api + `/api/invoices/${id}/html`);
 
-      return {
-        number: q('#invNumber').value.trim() || null,
-        date: q('#invDate').value.trim() || null,
-        seller, buyer, items,
-        currency: q('#currency').value.trim() || 'UAH',
-        note: q('#note').value.trim() || null,
-        vat_rate: isNaN(vat)? null : vat
-      };
-    }
-
-    async function createInvoice(){
-      try{
-        toast('Створюю рахунок…', true);
-        const body = readForm();
-        const url = new URL('/api/invoices', API);
-        const res = await fetch(urlWithBypass(url), {
-          method:'POST',
-          headers:{'content-type':'application/json','ngrok-skip-browser-warning':'1'},
-          body: JSON.stringify(body)
-        });
-        if(!res.ok) throw new Error('HTTP '+res.status);
-        const data = await res.json();
-        lastInvoiceId = data.id;
-        document.getElementById('openPdf').disabled = false;
-        document.getElementById('downloadPdf').disabled = false;
-        toast('Готово. Тепер можна відкрити/завантажити PDF', true);
-      }catch(e){
-        toast('Помилка створення рахунку: ' + e.message, false);
-      }
-    }
-
-    async function openPdf(invId, download=false){
-      if (!invId) return;
-      const pdfUrl = urlWithBypass(API + `/api/invoices/${encodeURIComponent(invId)}/pdf${download ? '/download' : ''}`);
-
-      try{
-        const res = await fetch(pdfUrl, { headers: { 'ngrok-skip-browser-warning':'1' }});
-        if(!res.ok) throw new Error('HTTP '+res.status);
-        const ct = (res.headers.get('content-type') || '').toLowerCase();
-
-        if (ct.includes('application/pdf')) {
-          const blob = await res.blob();
-          const blobUrl = URL.createObjectURL(blob);
-          window.open(blobUrl, '_blank');
-        } else {
-          const htmlUrl = urlWithBypass(API + `/api/invoices/${encodeURIComponent(invId)}/html`);
-          if (window.Telegram && Telegram.WebApp) {
-            Telegram.WebApp.openLink(htmlUrl, { try_instant_view:false });
-          } else {
-            window.open(htmlUrl, '_blank');
-          }
-          toast('PDF тимчасово недоступний — відкрив HTML версію', false);
-        }
-      }catch(e){
-        toast('Помилка відкриття: '+e.message, false);
-      }
-    }
-
-    document.getElementById('create').onclick = createInvoice;
-    document.getElementById('openPdf').onclick = ()=> openPdf(lastInvoiceId, false);
-    document.getElementById('downloadPdf').onclick = ()=> openPdf(lastInvoiceId, true);
-  </script>
+    const linksBox = document.getElementById('links');
+    linksBox.innerHTML = `
+      <a class="btn" href="${pdf}" target="_blank">⬇️ PDF</a>
+      <a class="btn secondary" href="${html}" target="_blank">🔎 HTML</a>
+    `;
+    status.textContent = "Готово!";
+  } catch (e) {
+    status.textContent = "Помилка: " + e.message;
+  }
+}
+</script>
 </body>
 </html>
