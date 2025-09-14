@@ -5,76 +5,104 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Створення рахунку</title>
   <style>
-    body { font-family: system-ui, -apple-system, "Segoe UI", Arial; margin: 0; padding: 16px; background:#f7f7f8; }
-    .card { background:#fff; border-radius:14px; padding:16px; box-shadow: 0 2px 10px rgba(0,0,0,.06); max-width:900px; margin:0 auto; }
-    h1 { margin:0 0 12px 0; font-size:20px; }
-    fieldset { border:1px solid #eee; border-radius:10px; margin:12px 0; padding:12px; }
+    :root { --bg:#f7f7f8; --card:#fff; --muted:#666; --border:#eee; --accent:#0a7cff; --black:#111; }
+    html,body { margin:0; }
+    body { font-family: system-ui, -apple-system, "Segoe UI", Arial; background:var(--bg); padding:16px; }
+    .card { background:var(--card); border-radius:14px; padding:16px; box-shadow: 0 2px 10px rgba(0,0,0,.06); max-width:980px; margin:0 auto; }
+    h1 { margin:0 0 12px 0; font-size:22px; }
+    fieldset { border:1px solid var(--border); border-radius:10px; margin:12px 0; padding:12px; }
     legend { padding:0 6px; color:#555; }
     .row { display:grid; grid-template-columns: repeat(2,1fr); gap:10px; }
     label { display:block; font-size:12px; color:#555; margin-bottom:4px; }
     input, select { width:100%; padding:8px; border:1px solid #ddd; border-radius:8px; }
     table { width:100%; border-collapse:collapse; margin-top:10px; }
-    th, td { border:1px solid #eee; padding:8px; }
+    th, td { border:1px solid var(--border); padding:8px; vertical-align:top; }
     tfoot td { border:none; }
-    .btn { background:#111; color:#fff; border:0; padding:10px 14px; border-radius:10px; cursor:pointer; }
-    .btn.secondary { background:#0a7cff; }
-    .muted { color:#777; font-size:12px; }
-    .links a { display:inline-block; margin-right:10px; }
+    .btn { background:var(--black); color:#fff; border:0; padding:10px 14px; border-radius:10px; cursor:pointer; }
+    .btn.secondary { background:var(--accent); }
+    .btn.link { background:transparent; color:var(--accent); border:1px solid var(--accent); }
+    .muted { color:var(--muted); font-size:12px; }
+    .links a { display:inline-block; margin-right:10px; text-decoration:none; }
+    .diag { background:#fafafa; border:1px dashed var(--border); border-radius:10px; padding:10px; margin:10px 0; }
+    code { background:#f0f3f6; padding:2px 6px; border-radius:6px; }
+    .right { text-align:right; }
   </style>
+  <!-- міст з публічними базовими адресами -->
   <script src="./webapp_bridge.js"></script>
 </head>
 <body>
   <div class="card">
     <h1>Новий рахунок</h1>
 
+    <!-- Діагностика середовища -->
+    <div class="diag">
+      <div class="muted">Діагностика підключення:</div>
+      <div>API_BASE: <code id="apiBase">(визначаю...)</code></div>
+      <div>APP_BASE: <code id="appBase">(визначаю...)</code></div>
+      <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap">
+        <button class="btn link" onclick="openHealth()">Відкрити health</button>
+        <button class="btn link" onclick="pingApi()">Ping API</button>
+        <button class="btn link" onclick="copyApi()">Копіювати API_BASE</button>
+      </div>
+      <div id="diagMsg" class="muted" style="margin-top:6px"></div>
+    </div>
+
     <fieldset>
       <legend>Продавець</legend>
       <div class="row">
-        <div><label>Назва</label><input id="seller_name"></div>
-        <div><label>Місто/адреса</label><input id="seller_addr"></div>
-        <div><label>IBAN</label><input id="seller_iban"></div>
-        <div><label>ЄДРПОУ/ІПН</label><input id="seller_tax"></div>
-        <div><label>Email</label><input id="seller_email"></div>
-        <div><label>Телефон</label><input id="seller_phone"></div>
+        <div><label>Назва</label><input id="seller_name" placeholder="ФОП Іваненко Іван"></div>
+        <div><label>Місто/адреса</label><input id="seller_addr" placeholder="Київ"></div>
+        <div><label>IBAN</label><input id="seller_iban" placeholder="UA..."></div>
+        <div><label>ЄДРПОУ/ІПН</label><input id="seller_tax" placeholder="1234567890"></div>
+        <div><label>Email</label><input id="seller_email" placeholder="name@example.com"></div>
+        <div><label>Телефон</label><input id="seller_phone" placeholder="+380..."></div>
       </div>
     </fieldset>
 
     <fieldset>
       <legend>Покупець</legend>
       <div class="row">
-        <div><label>Назва</label><input id="buyer_name"></div>
-        <div><label>Адреса</label><input id="buyer_addr"></div>
-        <div><label>ЄДРПОУ/ІПН</label><input id="buyer_tax"></div>
-        <div><label>Email</label><input id="buyer_email"></div>
+        <div><label>Назва</label><input id="buyer_name" placeholder="ТОВ Ромашка"></div>
+        <div><label>Адреса</label><input id="buyer_addr" placeholder="Львів"></div>
+        <div><label>ЄДРПОУ/ІПН</label><input id="buyer_tax" placeholder="12345678"></div>
+        <div><label>Email</label><input id="buyer_email" placeholder="client@example.com"></div>
       </div>
     </fieldset>
 
     <fieldset>
       <legend>Позиції</legend>
       <table id="items">
-        <thead><tr><th>Найменування</th><th>К-сть</th><th>Од.</th><th>Ціна</th><th></th></tr></thead>
+        <thead><tr><th>Найменування</th><th style="width:100px">К-сть</th><th style="width:100px">Од.</th><th style="width:140px">Ціна</th><th style="width:60px"></th></tr></thead>
         <tbody></tbody>
+        <tfoot>
+          <tr>
+            <td colspan="5" class="muted">Формат ціни та сум: <code>1234,56</code> (кома як роздільник копійок)</td>
+          </tr>
+        </tfoot>
       </table>
-      <button class="btn secondary" onclick="addRow()">+ Додати позицію</button>
-      <div class="muted" style="margin-top:6px">Формат ціни: 1234,56</div>
+      <div style="margin-top:8px">
+        <button class="btn secondary" onclick="addRow()">+ Додати позицію</button>
+        <button class="btn link" onclick="addRow('Послуги', '1', 'шт', '1000,00')">+ Шаблон</button>
+      </div>
     </fieldset>
 
     <fieldset>
       <legend>Налаштування</legend>
       <div class="row">
-        <div><label>Валюта</label>
+        <div>
+          <label>Валюта</label>
           <select id="currency">
-            <option value="UAH">UAH</option>
+            <option value="UAH" selected>UAH</option>
             <option value="USD">USD</option>
             <option value="EUR">EUR</option>
           </select>
         </div>
-        <div><label>Коментар (примітки)</label><input id="notes"></div>
+        <div><label>Примітки</label><input id="notes" placeholder="Без ПДВ"></div>
         <div><label>Місто виписки</label><input id="place_city" placeholder="Київ"></div>
       </div>
     </fieldset>
 
-    <div style="display:flex; gap:8px; align-items:center; margin-top:10px">
+    <div style="display:flex; gap:8px; align-items:center; margin-top:10px; flex-wrap:wrap">
       <button class="btn" onclick="createInvoice()">Створити рахунок</button>
       <span id="status" class="muted"></span>
     </div>
@@ -83,52 +111,104 @@
   </div>
 
 <script>
+/* ========= helpers ========= */
+function $(sel){ return document.querySelector(sel); }
+function $all(sel){ return [...document.querySelectorAll(sel)]; }
+function trimSlash(s){ return (s||"").replace(/\/+$/,''); }
+
+function resolveApiBase() {
+  let api = (window.API_BASE || "").trim();
+  // фолбек для локального запуску без webapp_bridge.js
+  if (!api && (location.hostname === "127.0.0.1" || location.hostname === "localhost")) {
+    api = "http://127.0.0.1:8081";
+  }
+  return trimSlash(api);
+}
+
+function showEnv() {
+  const api = resolveApiBase();
+  const app = trimSlash(window.APP_BASE || location.origin);
+  $("#apiBase").textContent = api || "(не задано)";
+  $("#appBase").textContent = app || "(невідомо)";
+  if (!api) {
+    $("#diagMsg").textContent = "API_BASE не знайдено. Переконайтесь, що webapp_bridge.js заповнений або запустіть локально API на 8081.";
+  } else {
+    $("#diagMsg").textContent = "";
+  }
+}
+
 function addRow(name="", qty="1", unit="шт", price="0,00") {
   const tr = document.createElement('tr');
   tr.innerHTML = `
     <td><input value="${name}"></td>
-    <td><input value="${qty}" style="width:80px"></td>
-    <td><input value="${unit}" style="width:80px"></td>
-    <td><input value="${price}" style="width:120px"></td>
-    <td><button class="btn" onclick="this.closest('tr').remove()">×</button></td>`;
-  document.querySelector('#items tbody').appendChild(tr);
+    <td><input value="${qty}" style="width:90px"></td>
+    <td><input value="${unit}" style="width:90px"></td>
+    <td><input value="${price}" style="width:130px"></td>
+    <td class="right"><button class="btn" title="Видалити" onclick="this.closest('tr').remove()">×</button></td>`;
+  $('#items tbody').appendChild(tr);
 }
 addRow();
 
-async function createInvoice() {
-  const status = document.getElementById('status');
+/* ========= diagnostics ========= */
+function openHealth(){
+  const api = resolveApiBase();
+  if (!api) { alert("API_BASE не заданий"); return; }
+  // Відкриваємо /health в новій вкладці, щоб пройти «consent» сторінку ngrok.
+  window.open(api + "/health", "_blank");
+}
+
+async function pingApi(){
+  const api = resolveApiBase();
+  if (!api) { $("#diagMsg").textContent = "API_BASE не заданий"; return; }
+  $("#diagMsg").textContent = "Ping...";
+  try {
+    const r = await fetch(api + "/health", {cache:"no-store"});
+    const ctype = (r.headers.get("content-type")||"").toLowerCase();
+    if (!ctype.includes("application/json")) {
+      $("#diagMsg").textContent = "API повернув не JSON (ймовірно, це «welcome/consent» сторінка ngrok). Натисніть «Відкрити health», погодьтеся і спробуйте ще раз.";
+      return;
+    }
+    const j = await r.json();
+    $("#diagMsg").textContent = "OK: " + JSON.stringify(j);
+  } catch (e) {
+    $("#diagMsg").textContent = "Помилка під час ping: " + (e.message || e);
+  }
+}
+
+async function createInvoice(){
+  const status = $("#status");
+  const api = resolveApiBase();
+  if (!api) { status.textContent = "API_BASE не заданий (перевір webapp_bridge.js)."; return; }
+
   status.textContent = "Надсилаю дані…";
 
-  const items = [...document.querySelectorAll('#items tbody tr')].map(tr => {
-    const tds = tr.querySelectorAll('input');
-    return { name: tds[0].value, qty: tds[1].value, unit: tds[2].value, price: tds[3].value };
+  const items = $all('#items tbody tr').map(tr => {
+    const [nameEl, qtyEl, unitEl, priceEl] = tr.querySelectorAll('input');
+    return {
+      name: nameEl.value,
+      qty: qtyEl.value,
+      unit: unitEl.value,
+      price: priceEl.value
+    };
   });
 
   const payload = {
     seller: {
-      name: document.getElementById('seller_name').value,
-      address: document.getElementById('seller_addr').value,
-      iban: document.getElementById('seller_iban').value,
-      tax_id: document.getElementById('seller_tax').value,
-      email: document.getElementById('seller_email').value,
-      phone: document.getElementById('seller_phone').value
+      name: $("#seller_name").value, address: $("#seller_addr").value,
+      iban: $("#seller_iban").value, tax_id: $("#seller_tax").value,
+      email: $("#seller_email").value, phone: $("#seller_phone").value
     },
     buyer: {
-      name: document.getElementById('buyer_name').value,
-      address: document.getElementById('buyer_addr').value,
-      tax_id: document.getElementById('buyer_tax').value,
-      email: document.getElementById('buyer_email').value
+      name: $("#buyer_name").value, address: $("#buyer_addr").value,
+      tax_id: $("#buyer_tax").value, email: $("#buyer_email").value
     },
     items,
     invoice: {
-      currency: document.getElementById('currency').value,
-      notes: document.getElementById('notes').value,
-      place_city: document.getElementById('place_city').value
+      currency: $("#currency").value,
+      notes: $("#notes").value,
+      place_city: $("#place_city").value
     }
   };
-
-  const api = (window.API_BASE || "").replace(/\/+$/,'');
-  if (!api) { status.textContent = "API_BASE не заданий (webapp_bridge.js)."; return; }
 
   try {
     const r = await fetch(api + "/api/invoices", {
@@ -136,6 +216,14 @@ async function createInvoice() {
       headers: { "Content-Type":"application/json" },
       body: JSON.stringify(payload)
     });
+
+    // окрема перевірка на «consent»/HTML від ngrok
+    const ctype = (r.headers.get("content-type")||"").toLowerCase();
+    if (!ctype.includes("application/json")) {
+      status.textContent = "API повернув не JSON (можливо, це «welcome/consent» від ngrok). Натисніть «Відкрити health», погодьтеся і натисніть «Створити рахунок» ще раз.";
+      return;
+    }
+
     if (!r.ok) throw new Error("HTTP " + r.status);
     const data = await r.json();
 
@@ -144,16 +232,30 @@ async function createInvoice() {
     const pdf = links.pdf ? (api + links.pdf) : (api + `/api/invoices/${id}/pdf?dl=1`);
     const html = links.html ? (api + links.html) : (api + `/api/invoices/${id}/html`);
 
-    const linksBox = document.getElementById('links');
+    const linksBox = $("#links");
     linksBox.innerHTML = `
-      <a class="btn" href="${pdf}" target="_blank">⬇️ PDF</a>
+      <a class="btn" href="${pdf}" target="_blank" download>⬇️ PDF</a>
       <a class="btn secondary" href="${html}" target="_blank">🔎 HTML</a>
     `;
+
     status.textContent = "Готово!";
   } catch (e) {
-    status.textContent = "Помилка: " + e.message;
+    status.textContent = "Помилка: " + (e.message || e);
   }
 }
+
+async function copyApi(){
+  const api = resolveApiBase();
+  if (!api) { alert("API_BASE не заданий"); return; }
+  try {
+    await navigator.clipboard.writeText(api);
+    $("#diagMsg").textContent = "API_BASE скопійовано в буфер обміну.";
+  } catch {
+    $("#diagMsg").textContent = "Не вдалося скопіювати API_BASE.";
+  }
+}
+
+showEnv();
 </script>
 </body>
 </html>
