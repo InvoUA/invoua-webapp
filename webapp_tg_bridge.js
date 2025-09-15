@@ -1,16 +1,11 @@
-// webapp_tg_bridge.js — перехоплює POST /api/invoices і шле дані в Telegram WebApp.
+// InvoUA Telegram WebApp bridge: відправляє у бот факт створення інвойсу
 (function () {
   const tg = window.Telegram && window.Telegram.WebApp;
-  const safeSend = (payload) => {
+  function sendToBot(payload) {
     try { tg && tg.sendData && tg.sendData(JSON.stringify(payload)); } catch(e) {}
-  };
-  const abs = (rel) => {
-    if (!rel) return null;
-    const base = (window.API_BASE || "").replace(/\/+$/,'');
-    return base ? (base + rel) : rel;
-  };
+  }
 
-  // ---- fetch ----
+  // Перехоплення fetch
   const origFetch = window.fetch;
   if (origFetch) {
     window.fetch = async function (input, init) {
@@ -22,19 +17,21 @@
           const clone = res.clone();
           const data = await clone.json().catch(() => null);
           if (data && data.id) {
-            // підтримуємо обидва варіанти відповіді API
-            const number = data.number || (data.invoice && data.invoice.number) || "";
-            const pdf = data.pdf_url || (data.links && data.links.pdf && abs(data.links.pdf)) || null;
-            const html = data.public_url || (data.links && data.links.html && abs(data.links.html)) || null;
-            safeSend({ type: 'invoice_created', id: data.id, number, html_url: html, pdf_url: pdf });
+            sendToBot({
+              type: 'invoice_created',
+              id: data.id,
+              number: data.number,
+              html_url: data.public_url,
+              pdf_url: data.pdf_url
+            });
           }
         }
-      } catch (e) {}
+      } catch(e) {}
       return res;
     };
   }
 
-  // ---- XMLHttpRequest ----
+  // Перехоплення XHR (на випадок, якщо фронт не на fetch)
   (function () {
     const XHR = window.XMLHttpRequest;
     if (!XHR) return;
@@ -42,7 +39,7 @@
     const origSend = XHR.prototype.send;
 
     XHR.prototype.open = function (method, url) {
-      this.__invoua__ = { method: String(method || '').toUpperCase(), url: String(url || '') };
+      this.__invoua__ = { method: String(method||'').toUpperCase(), url: String(url||'') };
       return origOpen.apply(this, arguments);
     };
     XHR.prototype.send = function (body) {
@@ -54,13 +51,16 @@
             if (/\/api\/invoices(\?|$)/i.test(meta.url) && meta.method === 'POST' && self.status >= 200 && self.status < 300) {
               const data = JSON.parse(self.responseText);
               if (data && data.id) {
-                const number = data.number || (data.invoice && data.invoice.number) || "";
-                const pdf = data.pdf_url || (data.links && data.links.pdf && abs(data.links.pdf)) || null;
-                const html = data.public_url || (data.links && data.links.html && abs(data.links.html)) || null;
-                safeSend({ type: 'invoice_created', id: data.id, number, html_url: html, pdf_url: pdf });
+                sendToBot({
+                  type: 'invoice_created',
+                  id: data.id,
+                  number: data.number,
+                  html_url: data.public_url,
+                  pdf_url: data.pdf_url
+                });
               }
             }
-          } catch (e) {}
+          } catch(e) {}
         }
       });
       return origSend.apply(this, arguments);
