@@ -2,354 +2,285 @@
 <html lang="uk">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>InvoUA — створення рахунку</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    :root{
-      --bg:#0f172a; --panel:#111827; --muted:#9ca3af; --txt:#e5e7eb; --line:#374151;
-      --ok:#16a34a; --warn:#f59e0b; --err:#ef4444; --brand:#60a5fa;
-      --inputbg:#0b1220;
-    }
-    html,body{margin:0; background:var(--bg); color:var(--txt); font-family:system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, "DejaVu Sans", Arial, sans-serif;}
-    .wrap{max-width:960px; margin:18px auto; padding:0 12px;}
-    .card{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px;}
-    h1{margin:0 0 12px 0; font-size:22px}
-    .hint{font-size:13px; color:var(--muted); margin:4px 0 12px 0}
-    .env{font-size:13px; margin-bottom:10px}
-    .env b{color:var(--brand)}
-    .env .err{color:var(--err); font-weight:600}
-    .grid{display:grid; grid-template-columns:1fr 1fr; gap:10px}
-    .row{display:grid; grid-template-columns:1fr 80px 80px 1fr; gap:10px}
-    label{font-size:12px; color:var(--muted); display:block; margin-bottom:4px}
-    input,select,textarea{
-      width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--line);
-      background:var(--inputbg); color:var(--txt); font-size:14px; outline:none;
-    }
-    input:focus,textarea:focus,select:focus{border-color:#60a5fa}
-    .table{margin-top:8px; border:1px solid var(--line); border-radius:12px; overflow:hidden}
-    .trow{display:grid; grid-template-columns:1.2fr 0.5fr 0.5fr 0.8fr; gap:0; border-top:1px solid var(--line)}
-    .trow:first-child{border-top:none}
-    .trow > div{padding:8px}
-    .trow.head{background:#111827; color:#cbd5e1; font-weight:600}
-    .btn{display:inline-flex; align-items:center; gap:8px; padding:10px 14px; border-radius:12px; border:1px solid var(--line); background:#0b1220; color:#fff; cursor:pointer}
-    .btn.brand{background:#2563eb; border-color:#1d4ed8}
-    .btn:disabled{opacity:.6; cursor:not-allowed}
-    .flex{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
-    .mt{margin-top:12px}
-    .ok{color:var(--ok)} .warn{color:var(--warn)} .err{color:var(--err)}
-    .links a{color:#93c5fd; text-decoration:none}
-    .links a:hover{text-decoration:underline}
-    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;}
-    .sep{height:1px; background:var(--line); margin:12px 0}
+    :root{--bg:#0b1220;--card:#121a2b;--txt:#e8eefc;--muted:#8ea1c7;--acc:#4ea1ff;--ok:#33d18f;--bad:#ff5562;border-color:#263453}
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+    .wrap{max-width:920px;margin:32px auto;padding:16px}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px}
+    h1{margin:0 0 12px 0;font-weight:700}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .row-3{display:grid;grid-template-columns:1.5fr .5fr .5fr .7fr;gap:12px}
+    .field{display:flex;flex-direction:column;gap:6px}
+    .field label{font-size:12px;color:var(--muted)}
+    input,select,textarea{width:100%;padding:10px 12px;border:1px solid var(--border);background:#0e1626;color:var(--txt);border-radius:10px;outline:none}
+    input:focus,select:focus,textarea:focus{border-color:var(--acc)}
+    .muted{color:var(--muted)}
+    .grid{display:grid;gap:12px}
+    .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+    button{background:var(--acc);border:0;color:#00142c;padding:10px 14px;border-radius:10px;font-weight:700;cursor:pointer}
+    button.secondary{background:#233149;color:var(--txt)}
+    .badge{display:inline-flex;gap:8px;align-items:center;font-size:12px;padding:6px 10px;border-radius:999px;background:#0f1930;border:1px solid var(--border)}
+    .ok{color:var(--ok);border-color:rgba(51,209,143,.35)}
+    .bad{color:var(--bad);border-color:rgba(255,85,98,.35)}
+    .hr{height:1px;background:var(--border);margin:12px 0}
+    .k{width:80px;text-align:center}
+    .u{width:80px}
+    .p{width:140px;text-align:right}
+    @media (max-width:720px){.row,.row-3{grid-template-columns:1fr}}
   </style>
-
-  <!-- 1) Підтягнути webapp_env.js із параметром, який вимикає pop-up сторінку ngrok -->
-  <script>
-    (function(){
-      var s=document.createElement('script');
-      s.src='webapp_env.js?ngrok-skip-browser-warning=true&v='+Date.now();
-      document.head.appendChild(s);
-    })();
-  </script>
-
-  <!-- 2) Telegram bridge: віддати боту інфо про створений інвойс -->
-  <script>
-    (function () {
-      const tg = window.Telegram && window.Telegram.WebApp;
-      function sendToBot(payload){
-        try { tg && tg.sendData && tg.sendData(JSON.stringify(payload)); } catch(e){}
-      }
-      // перехоплюємо fetch
-      const origFetch = window.fetch;
-      if (origFetch){
-        window.fetch = async function(input, init){
-          const url = (typeof input==='string')? input : (input && input.url) || '';
-          const method = (init && init.method ? String(init.method).toUpperCase() : 'GET');
-          // додамо заголовок для ngrok
-          init = init || {};
-          init.headers = Object.assign({}, init.headers||{}, {'ngrok-skip-browser-warning':'true'});
-          const res = await origFetch(input, init);
-          try{
-            if (/\/api\/invoices(\?|$)/i.test(url) && method==='POST' && res.ok){
-              const data = await res.clone().json().catch(()=>null);
-              if (data && data.id){
-                sendToBot({
-                  type:'invoice_created',
-                  id:data.id,
-                  number:data.number || (data.invoice && data.invoice.number),
-                  html_url:(data.links && data.links.html) || '',
-                  pdf_url:(data.links && data.links.pdf) || ''
-                });
-              }
-            }
-          }catch(e){}
-          return res;
-        }
-      }
-      // перехоплюємо XHR
-      (function(){
-        const X = window.XMLHttpRequest; if(!X) return;
-        const o = X.prototype.open, s = X.prototype.send;
-        X.prototype.open = function(m,u){ this.__meta={m:String(m||'').toUpperCase(),u:String(u||'')}; return o.apply(this,arguments); };
-        X.prototype.send = function(b){
-          this.addEventListener('readystatechange', ()=>{
-            if(this.readyState===4){
-              try{
-                if (/\/api\/invoices(\?|$)/i.test(this.__meta.u) && this.__meta.m==='POST' && this.status>=200 && this.status<300){
-                  const data = JSON.parse(this.responseText||'null');
-                  if (data && data.id){
-                    sendToBot({
-                      type:'invoice_created',
-                      id:data.id,
-                      number:data.number || (data.invoice && data.invoice.number),
-                      html_url:(data.links && data.links.html) || '',
-                      pdf_url:(data.links && data.links.pdf) || ''
-                    });
-                  }
-                }
-              }catch(e){}
-            }
-          });
-          try{ this.setRequestHeader('ngrok-skip-browser-warning','true'); }catch(e){}
-          return s.apply(this, arguments);
-        };
-      })();
-    })();
-  </script>
+  <!-- (опційно) локальні значення баз приходять звідси -->
+  <script src="./webapp_env.js" defer></script>
 </head>
-
 <body>
   <div class="wrap">
     <div class="card">
       <h1>Створення рахунку</h1>
-      <div id="env" class="env mono">
-        <div>APP_BASE: <b id="appBase">(визначається…)</b></div>
-        <div>API_BASE: <b id="apiBase">(визначається…)</b> · <a id="apiCheck" href="#" class="links">перевірити API</a></div>
-        <div id="apiState" class="hint"></div>
+      <div id="envLine" class="muted" style="margin-bottom:10px"></div>
+
+      <div class="grid" style="margin-top:8px">
+        <div class="field"><label>Назва рахунку/нотатка (опц.)</label><input id="note" placeholder="Напр.: Договір №12"></div>
       </div>
+
+      <div class="hr"></div>
 
       <div class="grid">
-        <div>
-          <label>Продавець — Назва</label>
-          <input id="s_name" placeholder="ФОП …" />
+        <div class="muted">Продавець</div>
+        <div class="row">
+          <div class="field"><label>Назва</label><input id="s_name" placeholder="ФОП Іваненко Іван"></div>
+          <div class="field"><label>Місто/адреса</label><input id="s_addr" placeholder="Київ"></div>
         </div>
-        <div>
-          <label>Місто/адреса</label>
-          <input id="s_addr" placeholder="Київ" />
+        <div class="row">
+          <div class="field"><label>IBAN</label><input id="s_iban" placeholder="UA..."></div>
+          <div class="field"><label>ЄДРПОУ/ІПН</label><input id="s_tax" placeholder="1234567890"></div>
         </div>
-        <div>
-          <label>IBAN</label>
-          <input id="s_iban" class="mono" placeholder="UA…" />
-        </div>
-        <div>
-          <label>ЄДРПОУ/ІПН</label>
-          <input id="s_tax" class="mono" />
-        </div>
-        <div>
-          <label>Email</label>
-          <input id="s_email" type="email" />
-        </div>
-        <div>
-          <label>Телефон</label>
-          <input id="s_phone" />
+        <div class="row">
+          <div class="field"><label>Email</label><input id="s_email" placeholder="seller@example.com"></div>
+          <div class="field"><label>Телефон</label><input id="s_phone" placeholder="+380..."></div>
         </div>
       </div>
 
-      <div class="sep"></div>
+      <div class="hr"></div>
 
       <div class="grid">
-        <div>
-          <label>Покупець — Назва</label>
-          <input id="b_name" placeholder="ТОВ …" />
+        <div class="muted">Покупець</div>
+        <div class="row">
+          <div class="field"><label>Назва</label><input id="b_name" placeholder="ТОВ «Ромашка»"></div>
+          <div class="field"><label>Адреса</label><input id="b_addr" placeholder="Львів"></div>
         </div>
-        <div>
-          <label>Адреса</label>
-          <input id="b_addr" />
-        </div>
-        <div>
-          <label>ЄДРПОУ/ІПН</label>
-          <input id="b_tax" class="mono" />
-        </div>
-        <div>
-          <label>Email</label>
-          <input id="b_email" type="email" />
-        </div>
-        <div>
-          <label>Телефон</label>
-          <input id="b_phone" />
+        <div class="row">
+          <div class="field"><label>ЄДРПОУ/ІПН</label><input id="b_tax" placeholder="12345678"></div>
+          <div class="field"><label>Email/Телефон</label><input id="b_email" placeholder="acct@client.com / +380..."></div>
         </div>
       </div>
 
-      <div class="sep"></div>
+      <div class="hr"></div>
 
-      <div class="table">
-        <div class="trow head">
-          <div>Найменування</div><div>К-сть</div><div>Од.</div><div>Ціна</div>
-        </div>
-        <div class="trow">
-          <div><input id="i1_name" placeholder="Послуга/Товар" /></div>
-          <div><input id="i1_qty"  value="1" /></div>
-          <div><input id="i1_unit" value="шт" /></div>
-          <div><input id="i1_price" value="1000,00" /></div>
-        </div>
-        <div class="trow">
-          <div><input id="i2_name" /></div>
-          <div><input id="i2_qty"  value="1" /></div>
-          <div><input id="i2_unit" value="шт" /></div>
-          <div><input id="i2_price" /></div>
-        </div>
-        <div class="trow">
-          <div><input id="i3_name" /></div>
-          <div><input id="i3_qty"  value="1" /></div>
-          <div><input id="i3_unit" value="шт" /></div>
-          <div><input id="i3_price" /></div>
+      <div class="grid">
+        <div class="muted">Позиції</div>
+
+        <div id="items"></div>
+        <div class="actions">
+          <button class="secondary" id="addItem">+ Додати позицію</button>
+          <span class="badge" id="fmtHint">Формат ціни: 1234,56</span>
         </div>
       </div>
 
-      <div class="grid mt">
-        <div>
-          <label>Валюта</label>
+      <div class="hr"></div>
+
+      <div class="row">
+        <div class="field"><label>Валюта</label>
           <select id="cur">
-            <option>UAH</option><option>USD</option><option>EUR</option>
+            <option value="UAH" selected>UAH</option>
+            <option value="USD">USD</option>
+            <option value="EUR">EUR</option>
           </select>
         </div>
-        <div>
-          <label>Місто виписки</label>
-          <input id="city" placeholder="Київ" />
-        </div>
+        <div class="field"><label>Місце виписки</label><input id="place" placeholder="Київ"></div>
+      </div>
+      <div class="row">
+        <div class="field" style="grid-column:1/-1"><label>Коментар (примітки)</label><input id="notes" placeholder="Без ПДВ / Договір №..."></div>
       </div>
 
-      <div class="mt">
-        <label>Коментар (примітки)</label>
-        <textarea id="notes" rows="2" placeholder="Без ПДВ"></textarea>
+      <div class="actions">
+        <button id="make">Створити рахунок</button>
+        <button id="openHtml" class="secondary" style="display:none">Відкрити HTML</button>
+        <button id="getPdf" class="secondary" style="display:none">Завантажити PDF</button>
+        <span id="status" class="badge"></span>
       </div>
-
-      <div class="flex mt">
-        <button id="btnCreate" class="btn brand">Створити рахунок</button>
-        <button id="btnHealth" class="btn">Перевірити API</button>
-      </div>
-
-      <div id="result" class="mt"></div>
     </div>
   </div>
 
-  <script>
-    // ---------- УТИЛІТИ ----------
-    const qs = sel => document.querySelector(sel);
-    const parseMoney = s => {
-      if(!s) return 0;
-      s = String(s).replace(/\s| | /g,'').replace(',','.');
-      const v = Number.parseFloat(s);
-      return Number.isFinite(v) ? v : 0;
+<script>
+(function () {
+  // ---------- 1) Збір баз (API_BASE / APP_BASE) ----------
+  function take(param) {
+    const url = new URL(location.href);
+    const fromSearch = url.searchParams.get(param);
+    if (fromSearch) return fromSearch;
+    if (url.hash && url.hash.includes('=')) {
+      const h = new URLSearchParams(url.hash.slice(1));
+      if (h.get(param)) return h.get(param);
+    }
+    return null;
+  }
+
+  // із webapp_env.js (якщо існує)
+  let API_BASE = (window.API_BASE || '').trim();
+  let APP_BASE = (window.APP_BASE || '').trim();
+
+  // із URL
+  API_BASE = take('api') || API_BASE;
+  APP_BASE = take('app') || APP_BASE;
+
+  // дефолти для локалки
+  if (!API_BASE) API_BASE = (location.hostname === '127.0.0.1' || location.hostname === 'localhost')
+      ? 'http://127.0.0.1:8081' : '';
+  if (!APP_BASE) APP_BASE = location.origin;
+
+  // показати стани
+  const envLine = document.getElementById('envLine');
+  function setEnvInfo(okApi, msg) {
+    envLine.innerHTML =
+      `APP_BASE: <span class="badge">${APP_BASE}</span> · ` +
+      `API_BASE: <span class="badge ${okApi?'ok':'bad'}">${API_BASE || '—'}</span>` +
+      (msg ? ` · <span class="badge ${okApi?'ok':'bad'}">${msg}</span>` : '');
+  }
+
+  // ---------- 2) Перевірка доступності API ----------
+  async function ping() {
+    if (!API_BASE) { setEnvInfo(false, 'Немає доступу до API'); return false; }
+    try {
+      const res = await fetch(`${API_BASE}/health`, {
+        headers: {'ngrok-skip-browser-warning':'true'}
+      });
+      if (!res.ok) throw new Error(res.status);
+      setEnvInfo(true, 'OK');
+      return true;
+    } catch (e) {
+      setEnvInfo(false, 'Немає доступу до API');
+      return false;
+    }
+  }
+
+  // ---------- 3) UI: позиції ----------
+  const itemsRoot = document.getElementById('items');
+  function line(name='', qty='1', unit='шт', price='1000,00') {
+    const row = document.createElement('div');
+    row.className = 'row-3';
+    row.innerHTML = `
+      <div class="field"><label>Найменування</label><input placeholder="Послуга/Товар" value="${name}"></div>
+      <div class="field k"><label>К-сть</label><input value="${qty}"></div>
+      <div class="field u"><label>Од.</label><input value="${unit}"></div>
+      <div class="field p"><label>Ціна</label><input value="${price}"></div>
+    `;
+    return row;
+  }
+  itemsRoot.appendChild(line());
+  document.getElementById('addItem').onclick = () => itemsRoot.appendChild(line(''));
+
+  // ---------- 4) Telegram bridge (якщо є) ----------
+  const tg = window.Telegram && window.Telegram.WebApp;
+  if (tg && tg.setHeaderColor) tg.setHeaderColor('#0b1220');
+
+  function sendToBot(payload) {
+    try { tg && tg.sendData && tg.sendData(JSON.stringify(payload)); } catch(e){}
+  }
+
+  // ---------- 5) Створення інвойсу ----------
+  const btnMake = document.getElementById('make');
+  const btnHtml = document.getElementById('openHtml');
+  const btnPdf  = document.getElementById('getPdf');
+  const statusB = document.getElementById('status');
+
+  function fmt(s){ return (s||'').trim(); }
+
+  btnMake.onclick = async () => {
+    statusB.textContent = 'Створюю…';
+    statusB.className = 'badge';
+
+    if (!await ping()) { return; }
+
+    // зібрати дані
+    const its = [...itemsRoot.querySelectorAll('.row-3')].map(r=>{
+      const [n,q,u,p] = r.querySelectorAll('input');
+      return { name: fmt(n.value), qty: fmt(q.value||'1'), unit: fmt(u.value||'шт'), price: fmt(p.value||'0,00') };
+    }).filter(x=>x.name);
+
+    const payload = {
+      seller: {
+        name: fmt(document.getElementById('s_name').value),
+        address: fmt(document.getElementById('s_addr').value),
+        iban: fmt(document.getElementById('s_iban').value),
+        tax_id: fmt(document.getElementById('s_tax').value),
+        email: fmt(document.getElementById('s_email').value),
+        phone: fmt(document.getElementById('s_phone').value)
+      },
+      buyer: {
+        name: fmt(document.getElementById('b_name').value),
+        address: fmt(document.getElementById('b_addr').value),
+        tax_id: fmt(document.getElementById('b_tax').value),
+        email: fmt(document.getElementById('b_email').value)
+      },
+      items: its,
+      invoice: {
+        currency: fmt(document.getElementById('cur').value||'UAH'),
+        notes: fmt(document.getElementById('notes').value||document.getElementById('note').value||''),
+        place_city: fmt(document.getElementById('place').value||'')
+      }
     };
 
-    // ---------- ІНІЦІАЛІЗАЦІЯ ENV ----------
-    const envBox = qs('#env'), apiState = qs('#apiState');
-    function setEnv(appBase, apiBase){
-      qs('#appBase').textContent = appBase || '(порожньо)';
-      qs('#apiBase').textContent = apiBase || '(порожньо)';
-    }
-    function currentEnv(){
-      const appBase = window.APP_BASE || location.origin;
-      const apiBase = window.API_BASE || '';
-      setEnv(appBase, apiBase);
-      return {appBase, apiBase};
-    }
-
-    // health-перевірка
-    async function checkHealth(){
-      const {apiBase} = currentEnv();
-      if(!apiBase){ apiState.innerHTML = '<span class="err">API_BASE порожній</span>'; return false; }
-      try{
-        const r = await fetch(apiBase.replace(/\/$/,'')+'/health?ts='+Date.now(), {
-          headers:{'ngrok-skip-browser-warning':'true'}
-        });
-        if(!r.ok) throw new Error(r.status);
-        const j = await r.json().catch(()=>({}));
-        apiState.innerHTML = '<span class="ok">OK</span>: '+(JSON.stringify(j));
-        return true;
-      }catch(e){
-        apiState.innerHTML = '<span class="err">Немає доступу до API</span>';
-        return false;
-      }
-    }
-
-    qs('#apiCheck').addEventListener('click', (e)=>{ e.preventDefault(); checkHealth(); });
-    qs('#btnHealth').addEventListener('click', checkHealth);
-
-    // ---------- ВІДПРАВКА ----------
-    qs('#btnCreate').addEventListener('click', async ()=>{
-      const ok = await checkHealth(); if(!ok) return;
-
-      const {apiBase} = currentEnv();
-
-      const items = [];
-      [['#i1_'],['#i2_'],['#i3_']].forEach(([p])=>{
-        const name = qs(p+'name').value.trim();
-        const qty  = parseMoney(qs(p+'qty').value);
-        const unit = qs(p+'unit').value.trim() || 'шт';
-        const price= parseMoney(qs(p+'price').value);
-        if(name){
-          items.push({ name, qty, unit, price, line_total: +(qty*price).toFixed(2) });
-        }
+    try{
+      const res = await fetch(`${API_BASE}/api/invoices`, {
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'ngrok-skip-browser-warning':'true'
+        },
+        body: JSON.stringify(payload)
       });
-      if (!items.length){ alert('Додайте хоча б одну позицію'); return; }
+      if (!res.ok) throw new Error('HTTP '+res.status);
+      const data = await res.json();
 
-      const payload = {
-        seller: {
-          name:qs('#s_name').value, address:qs('#s_addr').value,
-          iban:qs('#s_iban').value, tax_id:qs('#s_tax').value,
-          email:qs('#s_email').value, phone:qs('#s_phone').value
-        },
-        buyer: {
-          name:qs('#b_name').value, address:qs('#b_addr').value,
-          tax_id:qs('#b_tax').value, email:qs('#b_email').value, phone:qs('#b_phone').value
-        },
-        items,
-        invoice: {
-          currency: qs('#cur').value || 'UAH',
-          place_city: qs('#city').value || '',
-          notes: qs('#notes').value || ''
+      const id = data.id || data.invoice_id || '';
+      const htmlUrl = `${API_BASE}/api/invoices/${id}/html`;
+      const pdfUrl  = `${API_BASE}/api/invoices/${id}/pdf?dl=1`;
+
+      btnHtml.style.display = 'inline-block';
+      btnPdf.style.display  = 'inline-block';
+      btnHtml.onclick = ()=> window.open(htmlUrl,'_blank','noopener');
+
+      // Завантаження PDF без «вітальної» сторінки ngrok
+      btnPdf.onclick = async ()=>{
+        try{
+          const r = await fetch(pdfUrl, { headers:{'ngrok-skip-browser-warning':'true'} });
+          const blob = await r.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = (data.number || id || 'invoice') + '.pdf';
+          document.body.appendChild(a); a.click();
+          setTimeout(()=>{URL.revokeObjectURL(url); a.remove();}, 500);
+        }catch(e){
+          window.open(pdfUrl,'_blank','noopener');
         }
       };
 
-      const btn = qs('#btnCreate'); btn.disabled = true; btn.textContent = 'Створюємо…';
-      try{
-        const r = await fetch(apiBase.replace(/\/$/,'')+'/api/invoices', {
-          method:'POST',
-          headers:{
-            'Content-Type':'application/json',
-            'ngrok-skip-browser-warning':'true'
-          },
-          body: JSON.stringify(payload)
-        });
-        if(!r.ok) throw new Error('HTTP '+r.status);
-        const data = await r.json();
+      statusB.textContent = `Готово: ${data.number || id}`;
+      statusB.className = 'badge ok';
 
-        const id     = data.id;
-        const html   = (data.links && data.links.html) || (apiBase.replace(/\/$/,'')+'/api/invoices/'+id+'/html');
-        const pdf    = (data.links && data.links.pdf)  || (apiBase.replace(/\/$/,'')+'/api/invoices/'+id+'/pdf?dl=1');
+      // у Telegram — відправимо метадані в бот
+      sendToBot({type:'invoice_created', id, number:data.number, html_url: htmlUrl, pdf_url: pdfUrl});
+    }catch(e){
+      statusB.textContent = 'Помилка створення';
+      statusB.className = 'badge bad';
+      console.error(e);
+    }
+  };
 
-        qs('#result').innerHTML =
-          '<div class="sep"></div>'+
-          '<div class="links">Рахунок створено: <span class="mono">'+(data.number || id)+'</span><br/>' +
-          '• <a target="_blank" href="'+html+'">Відкрити HTML</a><br/>' +
-          '• <a target="_blank" href="'+pdf +'">Завантажити PDF</a>' +
-          '</div>';
-
-      }catch(err){
-        qs('#result').innerHTML = '<div class="err">Помилка створення: '+(err.message||err)+'</div>';
-      }finally{
-        btn.disabled = false; btn.textContent = 'Створити рахунок';
-      }
-    });
-
-    // стартова перевірка
-    window.addEventListener('DOMContentLoaded', ()=>{
-      currentEnv();
-      // легка затримка, щоби встиг завантажитись webapp_env.js
-      setTimeout(()=>{ currentEnv(); checkHealth(); }, 250);
-    });
-  </script>
+  // перша перевірка
+  ping();
+})();
+</script>
 </body>
 </html>
