@@ -1,170 +1,232 @@
 <!doctype html>
 <html lang="uk">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>InvoUA — Створення рахунку</title>
-  <link rel="stylesheet" href="styles.css" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Створення рахунку — InvoUA</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <style>
-    /* мінімальний стиль — не змінює логіку */
-    body { font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "DejaVu Sans", Arial; background:#0f1724; color:#e6eef8; padding:18px; }
-    .warn { color:#ffb4b4; margin-bottom:12px; }
-    .small { font-size:12px; color:#aab6c6; }
-    .form { background:#081225; padding:12px; border-radius:8px; }
-    .btn { display:inline-block; padding:10px 14px; background:#0ea5a3; color:#012; border-radius:8px; cursor:pointer; }
+    :root { --bg:#0f172a; --card:#111827; --text:#e5e7eb; --muted:#9ca3af; --accent:#60a5fa; }
+    html,body { margin:0; background:var(--bg); color:var(--text); font-family:system-ui,Segoe UI,Arial,sans-serif; }
+    .wrap { max-width:920px; margin:24px auto; padding:16px; }
+    .card { background:var(--card); border-radius:14px; padding:16px; box-shadow:0 6px 20px rgba(0,0,0,.25); }
+    h1 { margin:0 0 12px 0; font-size:26px; }
+    .grid { display:grid; gap:10px; grid-template-columns: repeat(2, 1fr); }
+    label { font-size:12px; color:var(--muted); display:block; margin:4px 0; }
+    input, select, textarea {
+      width:100%; padding:10px 12px; border-radius:10px; border:1px solid #1f2937;
+      background:#0b1220; color:var(--text); outline:none;
+    }
+    table { width:100%; border-collapse:collapse; margin-top:12px; }
+    th, td { border:1px solid #1f2937; padding:8px; }
+    th { text-align:left; color:var(--muted); font-weight:600; }
+    .row { display:flex; gap:8px; align-items:center; }
+    .btn {
+      background:var(--accent); color:#0b1220; padding:12px 16px; border:none; border-radius:12px;
+      font-weight:700; cursor:pointer;
+    }
+    .muted { color:var(--muted); font-size:12px; }
+    .error { color:#fca5a5; }
+    .ok { color:#34d399; }
+    .env { font-size:12px; margin-bottom:8px }
+    .env a { color:var(--accent) }
   </style>
+  <script src="webapp_env.js"></script>
+  <script>
+    // ---- helpers ----
+    function qs(name){ return new URLSearchParams(location.search).get(name) }
+    function nowVer(){ return Math.floor(Date.now()/1000) }
+
+    // 1) Пріоритет URL ?api & ?app
+    (function resolveBases(){
+      const api = qs('api'); const app = qs('app');
+      if (api) window.API_BASE = api;
+      if (app) window.APP_BASE = app;
+      if (!window.APP_BASE) window.APP_BASE = location.origin;
+      // fallback на випадок GitHub Pages
+      if (!window.API_BASE) window.API_BASE = (location.hostname.endsWith("github.io"))
+          ? "https://example.invalid"  // завідомо не працює, щоб показати помилку
+          : (location.origin.replace(/:8090$/,"") + ":8081");
+    })();
+
+    async function apiFetch(path, opts={}){
+      const url = (path.startsWith("http") ? path : (window.API_BASE + path));
+      const headers = Object.assign({'ngrok-skip-browser-warning':'1'}, opts.headers||{});
+      const init = Object.assign({}, opts, { headers });
+      const res = await fetch(url, init);
+      return res;
+    }
+
+    async function ping(){
+      const el = document.getElementById('env');
+      try {
+        const r = await apiFetch('/health');
+        const data = await r.json();
+        el.innerHTML =
+          `APP_BASE: ${window.APP_BASE}<br>API_BASE: ${window.API_BASE} · `+
+          (data.status === 'ok' ? `<span class="ok">OK</span>` : `<span class="error">помилка</span>`);
+      } catch(e){
+        el.innerHTML =
+          `APP_BASE: ${window.APP_BASE}<br>`+
+          `API_BASE: ${window.API_BASE} · <span class="error">немає доступу до API</span>`;
+      }
+    }
+
+    async function downloadPdf(pdfUrl, fileName){
+      // Обхід «вітальної» сторінки ngrok: качаємо blob із заголовком, даємо файл напряму
+      const url = pdfUrl + (pdfUrl.includes('?') ? '&' : '?') + 'dl=1';
+      const res = await apiFetch(url);
+      if (!res.ok) throw new Error('PDF fetch failed');
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = fileName || ('invoice-'+nowVer()+'.pdf');
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+    }
+
+    async function onSubmit(evt){
+      evt.preventDefault();
+      const btn = document.getElementById('btnCreate');
+      btn.disabled = true; btn.innerText = 'Створюємо…';
+
+      // Збираємо мінімальний приклад: 1 позиція
+      const seller = {
+        name: document.getElementById('seller_name').value.trim(),
+        address: document.getElementById('seller_addr').value.trim(),
+        iban: document.getElementById('seller_iban').value.trim(),
+        tax_id: document.getElementById('seller_tax').value.trim(),
+        email: document.getElementById('seller_email').value.trim(),
+        phone: document.getElementById('seller_phone').value.trim()
+      };
+      const buyer = {
+        name: document.getElementById('buyer_name').value.trim(),
+        address: document.getElementById('buyer_addr').value.trim(),
+        tax_id: document.getElementById('buyer_tax').value.trim(),
+        email: document.getElementById('buyer_email').value.trim(),
+        phone: document.getElementById('buyer_phone').value.trim()
+      };
+      const itemName = document.getElementById('item_name').value.trim() || 'Послуга';
+      const itemQty = document.getElementById('item_qty').value.trim() || '1';
+      const itemUnit = document.getElementById('item_unit').value.trim() || 'шт';
+      const itemPrice = document.getElementById('item_price').value.trim() || '1000,00';
+
+      const payload = {
+        seller, buyer,
+        items: [{ name:itemName, qty:itemQty, unit:itemUnit, price:itemPrice }],
+        invoice: {
+          currency: document.getElementById('currency').value,
+          notes: document.getElementById('notes').value.trim(),
+          place_city: document.getElementById('place').value.trim()
+        }
+      };
+
+      try{
+        const res = await apiFetch('/api/invoices', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok){
+          const txt = await res.text().catch(()=> '');
+          throw new Error(`API ${res.status}: ${txt}`);
+        }
+        const data = await res.json();
+
+        // автозавантаження PDF без «welcome» сторінки
+        const pdf = data.links?.pdf || (window.API_BASE + `/api/invoices/${data.id}/pdf`);
+        await downloadPdf(pdf, `${data.invoice?.number||data.id}.pdf`);
+
+        // Якщо відкрито в Telegram WebApp — надішлемо подію назад у бота
+        try {
+          const tg = window.Telegram && window.Telegram.WebApp;
+          tg && tg.sendData && tg.sendData(JSON.stringify({
+            type:'invoice_created',
+            id:data.id,
+            number:data.invoice?.number,
+            html_url: data.links?.html ? (window.API_BASE + data.links.html) : null,
+            pdf_url: pdf
+          }));
+        } catch(e){}
+
+        btn.innerText = 'Готово ✅';
+      } catch(e){
+        alert('Помилка мережі або CORS. Подивись консоль.\n\n'+e.message);
+        console.error(e);
+        btn.innerText = 'Створити рахунок';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', ()=>{
+      document.getElementById('form').addEventListener('submit', onSubmit);
+      ping();
+    });
+  </script>
 </head>
 <body>
-  <h1>Створення рахунку</h1>
+  <div class="wrap">
+    <div class="card">
+      <h1>Створення рахунку</h1>
+      <div id="env" class="env muted">Перевіряю доступ до API…</div>
 
-  <div id="info" class="small"></div>
+      <form id="form">
+        <h3>Продавець</h3>
+        <div class="grid">
+          <div><label>Назва</label><input id="seller_name" placeholder="ФОП…"></div>
+          <div><label>Адреса</label><input id="seller_addr" placeholder="місто, адреса"></div>
+          <div><label>IBAN</label><input id="seller_iban" placeholder="UA…"></div>
+          <div><label>ЄДРПОУ/ІПН</label><input id="seller_tax" placeholder="…"></div>
+          <div><label>Email</label><input id="seller_email" placeholder="name@example.com"></div>
+          <div><label>Телефон</label><input id="seller_phone" placeholder="+380…"></div>
+        </div>
 
-  <div class="form">
-    <!-- simplified form demo (твій повний UI лишаємо як зараз) -->
-    <label>Назва продавця<br /><input id="seller_name" value="" /></label><br/><br/>
-    <label>Покупець<br /><input id="buyer_name" value="" /></label><br/><br/>
-    <label>Позиція<br /><input id="item_name" value="Послуги обліку" /></label><br/><br/>
-    <label>Ціна<br /><input id="price" value="1000,00" /></label><br/><br/>
-    <div><button id="create" class="btn">Створити рахунок</button></div>
+        <h3 style="margin-top:14px">Покупець</h3>
+        <div class="grid">
+          <div><label>Назва</label><input id="buyer_name" placeholder="ТОВ…"></div>
+          <div><label>Адреса</label><input id="buyer_addr" placeholder="місто, адреса"></div>
+          <div><label>ЄДРПОУ/ІПН</label><input id="buyer_tax" placeholder="…"></div>
+          <div><label>Email</label><input id="buyer_email" placeholder="…"></div>
+          <div><label>Телефон</label><input id="buyer_phone" placeholder="…"></div>
+        </div>
+
+        <h3 style="margin-top:14px">Позиція</h3>
+        <table>
+          <thead><tr><th>Найменування</th><th>К-сть</th><th>Од.</th><th>Ціна</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><input id="item_name" placeholder="Послуга/товар"></td>
+              <td><input id="item_qty" value="1"></td>
+              <td><input id="item_unit" value="шт"></td>
+              <td><input id="item_price" value="1000,00"></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="grid" style="margin-top:12px">
+          <div>
+            <label>Валюта</label>
+            <select id="currency">
+              <option value="UAH" selected>UAH</option>
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+            </select>
+          </div>
+          <div><label>Місто виписки</label><input id="place" value="Київ"></div>
+        </div>
+
+        <div style="margin-top:12px">
+          <label>Коментар (примітки)</label>
+          <textarea id="notes" rows="2" placeholder="Без ПДВ…"></textarea>
+        </div>
+
+        <div class="row" style="margin-top:16px">
+          <button id="btnCreate" class="btn" type="submit">Створити рахунок</button>
+          <span class="muted">Файл PDF завантажиться автоматично.</span>
+        </div>
+      </form>
+    </div>
   </div>
-
-  <script>
-  // --- налаштування BASE (буде перезаписано webapp_env.js якщо присутній) ---
-  if (!window.API_BASE) window.API_BASE = "http://127.0.0.1:8081";
-  if (!window.APP_BASE) window.APP_BASE = location.origin;
-
-  // show current values (debug)
-  const info = document.getElementById('info');
-  function showInfo() {
-    info.innerHTML = `<div class="small">APP_BASE: <code>${window.APP_BASE}</code><br>API_BASE: <code>${window.API_BASE}</code></div>`;
-  }
-  showInfo();
-
-  // --- helper: full URL builder ---
-  function apiUrl(path) {
-    if (!path) path = "";
-    // allow path with leading slash
-    return (window.API_BASE.replace(/\/+$/, '')) + (path.startsWith('/') ? path : ('/' + path));
-  }
-
-  // --- GLOBAL fetch wrapper: додає заголовок, щоб ngrok не показував "visit site" ---
-  (function() {
-    const origFetch = window.fetch;
-    if (!origFetch) return;
-    window.fetch = async function(input, init = {}) {
-      try {
-        let url = (typeof input === 'string') ? input : (input && input.url) || '';
-        // якщо це відправка до API_BASE — додати заголовок обходу ngrok warning
-        const targetHost = (window.API_BASE || '').toLowerCase();
-        if (targetHost && url && url.toLowerCase().startsWith(targetHost)) {
-          init.headers = init.headers || {};
-          // ngrok skip header — будь-яке значення
-          init.headers['ngrok-skip-browser-warning'] = 'true';
-          // CORS mode
-          init.mode = init.mode || 'cors';
-        }
-      } catch (e) { /* ignore */ }
-      return origFetch.apply(this, arguments);
-    };
-  })();
-
-  // --- XHR wrapper: додає заголовок для старих кодів (optional) ---
-  (function() {
-    const XHR = window.XMLHttpRequest;
-    if (!XHR) return;
-    const origOpen = XHR.prototype.open;
-    const origSend = XHR.prototype.send;
-    XHR.prototype.open = function(method, url) {
-      this.__invo_meta = { method: (method||'').toUpperCase(), url: url || '' };
-      return origOpen.apply(this, arguments);
-    };
-    XHR.prototype.send = function(body) {
-      try {
-        const meta = this.__invo_meta || {};
-        // перехопимо addEventListener, додамо заголовок перед викликом send
-        const origSetRequestHeader = this.setRequestHeader;
-        const self = this;
-        this.setRequestHeader = function(name, value) {
-          origSetRequestHeader.apply(self, arguments);
-        };
-        this.addEventListener('readystatechange', function() {
-          // нічого тут не робимо — заголовок додамо перед відправкою
-        });
-        // додаємо заголовок якщо URL містить API_BASE
-        const targetHost = (window.API_BASE || '').toLowerCase();
-        if (targetHost && meta.url && String(meta.url).toLowerCase().startsWith(targetHost)) {
-          try { origSetRequestHeader.call(self, 'ngrok-skip-browser-warning', 'true'); } catch (e) {}
-        }
-      } catch(e){}
-      return origSend.apply(this, arguments);
-    };
-  })();
-
-  // --- Telegram WebApp bridge sender (для бот-інтеграції) ---
-  function sendToBot(payload) {
-    try {
-      if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.sendData) {
-        window.Telegram.WebApp.sendData(JSON.stringify(payload));
-      } else {
-        // debug fallback
-        console.log('No Telegram.WebApp (sendData) available — payload:', payload);
-      }
-    } catch(e){ console.warn(e); }
-  }
-
-  // --- перехоплюємо локальний POST /api/invoices щоб відправити повідомлення боту ---
-  (function() {
-    const origFetch = window.fetch;
-    if (!origFetch) return;
-    window.fetch = async function(input, init = {}) {
-      const res = await origFetch(input, init);
-      try {
-        const url = (typeof input === 'string') ? input : (input && input.url) || '';
-        const method = (init && init.method) ? String(init.method).toUpperCase() : 'GET';
-        if (/\/api\/invoices(\?|$)/i.test(url) && method === 'POST' && res.ok) {
-          const clone = res.clone();
-          const data = await clone.json().catch(()=>null);
-          if (data && data.id) {
-            sendToBot({
-              type: 'invoice_created',
-              id: data.id,
-              number: (data.invoice && data.invoice.number) || data.number || '',
-              html_url: (data.links && data.links.html) || data.public_url || '',
-              pdf_url: (data.links && data.links.pdf) || data.pdf_url || ''
-            });
-          }
-        }
-      } catch(e) { console.warn(e) }
-      return res;
-    };
-  })();
-
-  // --- minimal form submit: використовує API_BASE та додає заголовок через wrapper ---
-  document.getElementById('create').addEventListener('click', async function() {
-    const body = {
-      seller: { name: document.getElementById('seller_name').value || '' },
-      buyer: { name: document.getElementById('buyer_name').value || '' },
-      items: [{ name: document.getElementById('item_name').value || 'Послуга', qty: "1", unit: "шт", price: document.getElementById('price').value || "0,00" }],
-      invoice: { currency: "UAH", notes: "" }
-    };
-    try {
-      const url = apiUrl('/api/invoices');
-      const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      if (!r.ok) {
-        const txt = await r.text().catch(()=>null);
-        alert('Помилка створення: ' + (txt || r.status));
-        return;
-      }
-      const data = await r.json();
-      alert('Рахунок створено: ' + (data.id || data.invoice && data.invoice.number || 'ok'));
-      // якщо бот не отримав — відправим ще раз на всякий
-      sendToBot({ type:'invoice_created', id: data.id, number: data.invoice && data.invoice.number, html_url: data.links && data.links.html, pdf_url: data.links && data.links.pdf });
-    } catch (e) {
-      console.error(e);
-      alert('Помилка мережі або CORS. Подивись консоль.');
-    }
-  });
-
-  </script>
 </body>
 </html>
