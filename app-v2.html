@@ -1,237 +1,313 @@
 <!doctype html>
 <html lang="uk">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>InvoUA — Створити рахунок</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>InvoUA — створення рахунку</title>
   <style>
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;background:#f6f7fb;color:#111;margin:0}
-    .wrap{max-width:980px;margin:16px auto;padding:12px}
-    .card{background:#fff;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.08);padding:18px}
-    h1{margin:0 0 12px 0;font-size:26px}
-    .row{display:flex;gap:12px;flex-wrap:wrap}
-    .col{flex:1 1 260px;min-width:260px}
-    label{display:block;font-size:12px;color:#555;margin:10px 0 6px}
-    input,select,textarea{width:100%;padding:10px 12px;border:1px solid #d8dde7;border-radius:10px;font-size:15px;box-sizing:border-box;background:#fff}
-    .muted{color:#8a8f99;font-size:12px}
-    .warn{color:#d7263d;font-weight:600}
-    .btn{display:inline-block;padding:12px 16px;border-radius:12px;border:0;background:#2563eb;color:#fff;font-weight:600;cursor:pointer}
-    .btn:disabled{opacity:.6;cursor:not-allowed}
-    .bar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}
-    .small{font-size:12px}
-    .apihint a{color:#2563eb;text-decoration:none}
-    .ok{color:#059669}
-    .err{color:#dc2626}
+    :root{--bg:#0b1220;--card:#111a2b;--muted:#7e8a9e;--fg:#e9eef7;--acc:#64b5f6}
+    html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell}
+    .wrap{max-width:980px;margin:0 auto;padding:24px}
+    h1{margin:0 0 12px 0;font-size:22px}
+    .card{background:var(--card);border:1px solid #223151;border-radius:16px;padding:16px;margin:14px 0;box-shadow:0 4px 20px rgba(0,0,0,.25)}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .row3{display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px}
+    .row4{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:12px}
+    label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+    input,select,textarea{width:100%;box-sizing:border-box;background:#0a1220;border:1px solid #24324d;border-radius:10px;padding:10px;color:var(--fg)}
+    input:focus,select:focus,textarea:focus{outline:none;border-color:#2f6bc6;box-shadow:0 0 0 3px rgba(47,107,198,.25)}
+    textarea{min-height:90px;resize:vertical}
+    table{width:100%;border-collapse:separate;border-spacing:0 8px}
+    th{font-size:12px;color:var(--muted);text-align:left;padding:0 8px}
+    td{background:#0a1220;border:1px solid #24324d;padding:8px;border-radius:10px}
+    tfoot td{background:transparent;border:none}
+    .btn{appearance:none;border:none;cursor:pointer;border-radius:12px;padding:10px 14px;font-weight:600}
+    .btn-primary{background:var(--acc)}
+    .btn-ghost{background:transparent;border:1px solid #2a3a5b;color:var(--fg)}
+    .btn-danger{background:#ef5350}
+    .flex{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .right{margin-left:auto}
+    .muted{color:var(--muted)}
+    .ok{color:#8bc34a}
+    .err{color:#ff6e6e}
+    .links a{color:var(--acc);text-decoration:none}
+    .pill{background:#16233c;border:1px solid #20365e;border-radius:999px;padding:6px 10px;color:var(--muted);font-size:12px}
   </style>
+  <!-- Середовище згенероване стартером -->
+  <script src="webapp_env.js"></script>
   <script>
-    // ---------- середовище ----------
-    let API_BASE = "";
-    let APP_BASE = "";
+    // Фолбек на localhost, якщо webapp_env.js не підвантажився
+    window.API_BASE = (window.API_BASE || "http://127.0.0.1:8081").replace(/\/+$/,'');
+    window.APP_BASE = (window.APP_BASE || location.origin).replace(/\/+$/,'');
 
-    // 1) з webapp_env.js (генерується з PowerShell)
-  </script>
-  <script src="./webapp_env.js"></script>
-  <script>
-    (function bootstrapEnv(){
-      try { if (window.API_BASE) API_BASE = String(window.API_BASE).replace(/\/+$/,''); } catch(e){}
-      try { if (window.APP_BASE) APP_BASE = String(window.APP_BASE).replace(/\/+$/,''); } catch(e){}
+    // Telegram WebApp (якщо відкрито в Telegram)
+    const TG = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+    if (TG) { try { TG.ready(); TG.expand(); } catch(e){} }
 
-      // 2) дозволимо перевизначити через query (?api=..., ?app=...)
-      const u = new URL(location.href);
-      if (u.searchParams.get("api")) API_BASE = u.searchParams.get("api").replace(/\/+$/,'');
-      if (u.searchParams.get("app")) APP_BASE = u.searchParams.get("app").replace(/\/+$/,'');
-
-      // 3) якщо API_BASE відсутній — покажемо в інтерфейсі
-      window.__env__ = { API_BASE, APP_BASE };
-    })();
-
-    // ---------- Telegram bridge для sendData ----------
-    (function bridge(){
-      const tg = window.Telegram && window.Telegram.WebApp;
-      function sendToBot(payload){
-        try { tg && tg.sendData && tg.sendData(JSON.stringify(payload)); } catch(e){}
-      }
-      // перехоплення fetch
+    // --- Глобальний шім fetch + XHR: додаємо заголовок, щоб не бачився інтерстішл ngrok ---
+    (function(){
+      const HDRS = {"ngrok-skip-browser-warning":"1","X-Requested-With":"XMLHttpRequest"};
       const origFetch = window.fetch;
       if (origFetch){
-        window.fetch = async function(input, init={}){
-          init.headers = Object.assign({}, init.headers, {"ngrok-skip-browser-warning":"1"});
-          const res = await origFetch(input, init);
-          try{
-            const url = typeof input==='string' ? input : (input && input.url) || '';
-            const method = (init && init.method ? String(init.method).toUpperCase() : 'GET');
-            if (/\/api\/invoices(\?|$)/i.test(url) && method==='POST' && res.ok){
-              const clone = res.clone();
-              const data = await clone.json().catch(()=>null);
-              if (data && data.id){
-                sendToBot({type:'invoice_created', id:data.id, number:data.number, html_url:data.public_url, pdf_url:data.pdf_url});
-              }
-            }
-          }catch(e){}
-          return res;
-        };
+        window.fetch = async function(input, init){
+          init = init || {};
+          init.headers = Object.assign({}, HDRS, init.headers||{});
+          return origFetch(input, init);
+        }
       }
-      // перехоплення XHR (на всяк випадок)
-      (function(){
-        const X = window.XMLHttpRequest; if (!X) return;
-        const o = X.prototype.open, s = X.prototype.send;
-        X.prototype.open = function(m,u){ this.__meta={m:String(m||'').toUpperCase(),u:String(u||'')}; return o.apply(this, arguments); };
-        X.prototype.send = function(b){
-          try{ this.setRequestHeader("ngrok-skip-browser-warning","1"); }catch(e){}
-          this.addEventListener('readystatechange', ()=>{
-            if (this.readyState===4){
-              try{
-                const meta=this.__meta||{};
-                if (/\/api\/invoices(\?|$)/i.test(meta.u) && meta.m==='POST' && this.status>=200 && this.status<300){
-                  const data = JSON.parse(this.responseText);
-                  if (data && data.id){
-                    const tg = window.Telegram && window.Telegram.WebApp;
-                    tg && tg.sendData && tg.sendData(JSON.stringify({type:'invoice_created', id:data.id, number:data.number, html_url:data.public_url, pdf_url:data.pdf_url}));
-                  }
-                }
-              }catch(e){}
-            }
-          });
-          return s.apply(this, arguments);
-        };
-      })();
+      const XHR = window.XMLHttpRequest;
+      if (XHR){
+        const open = XHR.prototype.open, send = XHR.prototype.send, setReqHeader = XHR.prototype.setRequestHeader;
+        XHR.prototype.open = function(){ this.___headers = Object.assign({}, HDRS); return open.apply(this, arguments); }
+        XHR.prototype.setRequestHeader = function(k,v){ this.___headers = this.___headers || {}; this.___headers[k]=v; return setReqHeader.apply(this, arguments); }
+        XHR.prototype.send = function(body){
+          if (this.___headers) for (const k in this.___headers) try{ XHR.prototype.setRequestHeader.call(this,k,this.___headers[k]); }catch(e){}
+          return send.call(this, body);
+        }
+      }
     })();
 
-    // ---------- UI / логіка форми ----------
-    async function pingApi(){
-      const el = document.getElementById('apiStatus');
-      if (!__env__.API_BASE){
-        el.innerHTML = `<span class="err">API не налаштовано</span>`;
-        return false;
-      }
+    // --- WebApp Bridge: якщо успішно створено інвойс — надсилаємо подію в бота ---
+    function notifyBotInvoiceCreated(data){
       try{
-        const r = await fetch(`${__env__.API_BASE}/health`, { headers: { "ngrok-skip-browser-warning":"1" }});
-        if (!r.ok){ el.innerHTML = `<span class="err">API недоступний (${r.status})</span>`; return false; }
-        const j = await r.json();
-        el.innerHTML = `<span class="ok">OK</span>`;
-        return j && j.status==='ok';
-      }catch(e){
-        el.innerHTML = `<span class="err">API недоступний: ${e}</span>`;
-        return false;
-      }
+        if (!TG || !TG.sendData) return;
+        TG.sendData(JSON.stringify({
+          type: 'invoice_created',
+          id: data.id,
+          number: data.number,
+          html_url: data.public_url,
+          pdf_url: data.pdf_url
+        }));
+      }catch(e){}
+    }
+
+    // Утиліти
+    const toMoney = n => (Number(n||0)).toFixed(2);
+    function calcTotals(){
+      const rows = document.querySelectorAll('#items tbody tr');
+      let sum = 0;
+      rows.forEach(tr=>{
+        const qty = parseFloat(tr.querySelector('[name="qty"]').value.replace(',','.'))||0;
+        const price = parseFloat(tr.querySelector('[name="price"]').value.replace(',','.'))||0;
+        const total = qty*price; sum += total;
+        tr.querySelector('.row-total').textContent = toMoney(total);
+      });
+      document.getElementById('total').textContent = toMoney(sum);
+      document.getElementById('amount').value = toMoney(sum).replace('.',','); // для /api
+    }
+    function addRow(data={}){
+      const tb = document.querySelector('#items tbody');
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><input name="name" placeholder="Найменування" value="${data.name||''}"></td>
+        <td><input name="unit" placeholder="од." value="${data.unit||'шт'}"></td>
+        <td><input name="qty"  inputmode="decimal" value="${data.qty||'1'}"></td>
+        <td><input name="price" inputmode="decimal" value="${data.price||'0,00'}"></td>
+        <td class="row-total">0.00</td>
+        <td><button type="button" class="btn btn-danger">×</button></td>
+      `;
+      tr.querySelectorAll('input[name="qty"],input[name="price"]').forEach(i=>i.addEventListener('input', calcTotals));
+      tr.querySelector('.btn-danger').addEventListener('click', ()=>{ tr.remove(); calcTotals(); });
+      tb.appendChild(tr);
+      calcTotals();
+    }
+    function collectItems(){
+      const out = [];
+      document.querySelectorAll('#items tbody tr').forEach(tr=>{
+        out.push({
+          name:  tr.querySelector('[name="name"]').value.trim(),
+          unit:  tr.querySelector('[name="unit"]').value.trim() || 'шт',
+          qty:   String(tr.querySelector('[name="qty"]').value).replace('.',','),
+          price: String(tr.querySelector('[name="price"]').value).replace('.',',')
+        });
+      });
+      return out;
     }
 
     async function createInvoice(ev){
       ev.preventDefault();
       const btn = document.getElementById('btnCreate');
-      btn.disabled = true;
+      const out = document.getElementById('out');
+      out.innerHTML = ""; btn.disabled = true; btn.textContent = "Створюємо…";
 
-      const f = ev.target;
+      // Збір реквізитів
       const payload = {
-        seller_name:   f.seller_name.value.trim(),
-        buyer_name:    f.buyer_name.value.trim(),
-        currency:      f.currency.value,
-        note:          f.note.value.trim(),
-        items: [
-          { name: f.item1.value.trim(), qty: Number(f.qty1.value||1), unit: f.unit1.value.trim(), price: f.price1.value.trim() }
-        ]
+        seller: {
+          name:    document.getElementById('s_name').value.trim(),
+          address: document.getElementById('s_addr').value.trim(),
+          iban:    document.getElementById('s_iban').value.trim(),
+          tax_id:  document.getElementById('s_tax').value.trim(),
+          email:   document.getElementById('s_mail').value.trim(),
+          phone:   document.getElementById('s_phone').value.trim()
+        },
+        buyer: {
+          name:    document.getElementById('b_name').value.trim(),
+          address: document.getElementById('b_addr').value.trim(),
+          tax_id:  document.getElementById('b_tax').value.trim()
+        },
+        items: collectItems(),
+        invoice: {
+          currency:  document.getElementById('currency').value,
+          place_city:document.getElementById('place').value.trim(),
+          notes:     document.getElementById('notes').value.trim()
+        },
+        // сума для бекових коротких маршрутів (/api/invoices)
+        amount: document.getElementById('amount').value,
+        description: document.getElementById('desc').value.trim()
       };
 
       try{
-        const r = await fetch(`${__env__.API_BASE}/api/invoices`, {
-          method:'POST',
-          headers:{
-            "Content-Type":"application/json",
-            "ngrok-skip-browser-warning":"1"
-          },
-          body: JSON.stringify(payload),
+        const r = await fetch(`${API_BASE}/api/invoices`, {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify(payload)
         });
-        if (!r.ok){
-          const txt = await r.text();
-          throw new Error(`HTTP ${r.status}: ${txt}`);
-        }
-        const data = await r.json();
-        // покажемо коротко і дамо посилання як запасний варіант
-        const out = document.getElementById('result');
-        const pdfUrl = `${__env__.API_BASE}/api/invoices/${data.id}/pdf?dl=1`;
+        const txt = await r.text();
+        if (!r.ok) throw new Error(`API ${r.status}: ${txt}`);
+
+        const data = JSON.parse(txt);
+        notifyBotInvoiceCreated(data); // telegram bridge
+
         out.innerHTML = `
-          <div class="small">ID: <code>${data.id}</code></div>
-          <a class="small" href="${pdfUrl}" target="_blank" rel="noopener">Відкрити PDF</a>
+          <div class="pill ok">✅ Рахунок створено</div>
+          <div class="links" style="margin-top:8px">
+            <a href="${data.public_url}" target="_blank" rel="noopener">Відкрити HTML</a> ·
+            <a href="${data.pdf_url}" target="_blank" rel="noopener">Завантажити PDF</a>
+          </div>
+          <div class="muted" style="margin-top:6px">ID: <code>${data.id}</code></div>
         `;
       }catch(e){
-        alert("Помилка мережі або CORS. Деталі в консолі.");
-        console.error("Create invoice failed:", e);
+        out.innerHTML = `<div class="pill err">Помилка: ${e.message}</div>`;
       }finally{
-        btn.disabled = false;
+        btn.disabled = false; btn.textContent = "Створити PDF";
       }
     }
 
     document.addEventListener('DOMContentLoaded', ()=>{
-      // заповнимо рядок статусу
-      document.getElementById('apiBase').textContent = __env__.API_BASE || '—';
-      pingApi();
-
-      // форма
-      document.getElementById('f').addEventListener('submit', createInvoice);
+      // стартові два рядки
+      addRow({name:"Послуги",qty:"1",price:"1000,00"});
+      addRow();
+      document.getElementById('addRow').addEventListener('click', ()=>addRow());
+      document.getElementById('form').addEventListener('submit', createInvoice);
+      calcTotals();
     });
   </script>
 </head>
 <body>
   <div class="wrap">
-    <div class="bar">
-      <h1>Створити рахунок</h1>
-      <div class="small apihint">
-        API: <code id="apiBase">—</code> • Статус: <span id="apiStatus" class="muted">перевіряю…</span>
-      </div>
-    </div>
+    <h1>Створення рахунку</h1>
 
-    <div class="card">
-      <form id="f">
+    <form id="form" class="card">
+      <div class="pill">API: <code id="apiShow"></code></div>
+      <script>document.getElementById('apiShow').textContent = API_BASE;</script>
+
+      <div class="card">
         <div class="row">
-          <div class="col">
-            <label>Продавець — Назва</label>
-            <input name="seller_name" placeholder="ТОВ Приклад" />
+          <div>
+            <label>Платник (Seller) — назва</label>
+            <input id="s_name" placeholder="ФОП Іваненко Іван">
           </div>
-          <div class="col">
-            <label>Покупець — Назва</label>
-            <input name="buyer_name" placeholder="ТОВ Замовник" />
+          <div>
+            <label>Платник — адреса</label>
+            <input id="s_addr" placeholder="м. Київ, вул. Прикладна, 1">
           </div>
         </div>
+        <div class="row3" style="margin-top:12px">
+          <div>
+            <label>IBAN</label>
+            <input id="s_iban" placeholder="UA1234...">
+          </div>
+          <div>
+            <label>ЄДРПОУ/ІПН</label>
+            <input id="s_tax" placeholder="1234567890">
+          </div>
+          <div>
+            <label>Телефон</label>
+            <input id="s_phone" placeholder="+380...">
+          </div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <div>
+            <label>Email</label>
+            <input id="s_mail" placeholder="billing@example.com">
+          </div>
+          <div>
+            <label>Місто виписки</label>
+            <input id="place" placeholder="Київ" value="Київ">
+          </div>
+        </div>
+      </div>
 
+      <div class="card">
         <div class="row">
-          <div class="col">
+          <div>
+            <label>Отримувач (Buyer) — назва</label>
+            <input id="b_name" placeholder="ТОВ Ромашка">
+          </div>
+          <div>
+            <label>Отримувач — адреса</label>
+            <input id="b_addr" placeholder="м. Львів, вул. Прикладна, 2">
+          </div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <div>
+            <label>Код ЄДРПОУ / ІПН</label>
+            <input id="b_tax" placeholder="12345678">
+          </div>
+          <div>
             <label>Валюта</label>
-            <select name="currency">
-              <option value="UAH">UAH</option>
+            <select id="currency">
+              <option value="UAH" selected>UAH</option>
               <option value="USD">USD</option>
               <option value="EUR">EUR</option>
             </select>
           </div>
-          <div class="col">
-            <label>Нотатки (необов’язково)</label>
-            <input name="note" placeholder="Без ПДВ / підпис/печатка" />
-          </div>
         </div>
+      </div>
 
-        <div class="row">
-          <div class="col">
-            <label>Найменування</label>
-            <input name="item1" placeholder="Послуга/Товар" />
-          </div>
-          <div class="col">
-            <label>К-сть</label>
-            <input name="qty1" value="1" />
-          </div>
-          <div class="col">
-            <label>Од.</label>
-            <input name="unit1" value="шт" />
-          </div>
-          <div class="col">
-            <label>Ціна</label>
-            <input name="price1" placeholder="1000,00" />
-          </div>
-        </div>
+      <div class="card">
+        <label>Опис для стислого маршруту API (видно у PDF як загальний опис)</label>
+        <input id="desc" placeholder="Послуги за договором ...">
 
-        <div style="margin-top:14px;display:flex;gap:10px;align-items:center;">
-          <button id="btnCreate" class="btn" type="submit">Створити рахунок</button>
-          <span id="result" class="small muted"></span>
-        </div>
-      </form>
+        <div style="height:10px"></div>
+        <label>Позиції</label>
+        <table id="items">
+          <thead>
+            <tr>
+              <th>Найменування</th><th>Од.</th><th>К-сть</th><th>Ціна</th><th>Сума</th><th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+          <tfoot>
+            <tr>
+              <td colspan="6" class="flex">
+                <button type="button" id="addRow" class="btn btn-ghost">+ Додати рядок</button>
+                <span class="right muted">Разом: <strong id="total">0.00</strong></span>
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <div class="card">
+        <label>Примітки (наприклад: «Без ПДВ»)</label>
+        <textarea id="notes" placeholder="Без ПДВ"></textarea>
+      </div>
+
+      <!-- приховане поле суми (API /api/invoices) -->
+      <input type="hidden" id="amount" value="0,00">
+
+      <div class="flex">
+        <button id="btnCreate" class="btn btn-primary" type="submit">Створити PDF</button>
+        <span class="muted">PDF і HTML відкриються без «вітальної» сторінки ngrok</span>
+      </div>
+
+      <div id="out" style="margin-top:12px"></div>
+    </form>
+
+    <div class="muted" style="margin-top:14px">
+      Підказка: файл <code>webapp_env.js</code> генерується автоматично скриптом запуску; у Telegram WebApp форма
+      надсилає подію в бота після створення інвойсу.
     </div>
   </div>
 </body>
