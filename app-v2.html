@@ -2,275 +2,235 @@
 <html lang="uk">
 <head>
   <meta charset="utf-8" />
-  <title>InvoUA — створення рахунку</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Створити рахунок</title>
   <style>
-    :root { --bg:#f6f7fb; --card:#fff; --muted:#666; --accent:#2563eb; }
-    html,body{margin:0;padding:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,'DejaVu Sans',Arial,sans-serif}
-    .wrap{max-width:880px;margin:24px auto;padding:16px}
-    .card{background:var(--card);border-radius:16px;box-shadow:0 6px 24px rgba(0,0,0,.06);padding:16px}
-    h1{margin:0 0 12px 0;font-size:20px}
-    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    .field{display:flex;flex-direction:column;margin-bottom:10px}
-    .field label{font-size:12px;color:var(--muted);margin-bottom:4px}
-    .field input,.field textarea,.field select{
-      font-size:14px;padding:10px;border:1px solid #ddd;border-radius:10px;outline:none
-    }
-    .muted{color:var(--muted);font-size:12px}
-    .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
-    button{border:0;border-radius:12px;padding:10px 14px;cursor:pointer;font-weight:600}
-    .primary{background:var(--accent);color:#fff}
-    .ghost{background:#eef2ff}
-    table{width:100%;border-collapse:collapse;margin-top:8px}
-    th,td{border:1px solid #e5e7eb;padding:8px;text-align:left}
-    th{background:#f3f4f6}
-    .right{text-align:right}
-    .status{margin:8px 0 0 0;font-size:12px}
-    .ok{color:#16a34a}.warn{color:#b45309}.bad{color:#dc2626}
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; padding: 12px; background:#0b0f14; color:#e8eef6; }
+    .card{ background:#111826; border-radius:14px; padding:16px; margin:0 auto; max-width:640px; box-shadow:0 8px 24px rgba(0,0,0,.35);}
+    h1{ font-size:26px; margin:0 0 12px;}
+    .row{ display:flex; gap:12px; margin-bottom:10px;}
+    .row > div{ flex:1;}
+    label{ display:block; font-size:12px; opacity:.8; margin-bottom:6px;}
+    input,select,button{ width:100%; padding:10px 12px; border-radius:10px; border:1px solid #2a3443; background:#0e141f; color:#e8eef6;}
+    input::placeholder{ color:#8ba3bd;}
+    .muted{ font-size:12px; color:#8ba3bd;}
+    .ok{ color:#4ade80} .err{ color:#f87171}
+    .toolbar{ display:flex; gap:10px; align-items:center; margin:10px 0 16px;}
+    .btn{ background:#2563eb; border:none; color:#fff; font-weight:600; cursor:pointer}
+    .btn.secondary{ background:#1f2937 }
+    .items th, .items td{ padding:8px; border-bottom:1px solid #1f2a3a;}
+    .items{ width:100%; border-collapse:collapse; margin-top:8px;}
+    .footer{ margin-top:12px; font-size:12px; opacity:.8 }
+    .danger{ color:#f87171; display:flex; align-items:center; gap:8px; margin-top:8px;}
+    a { color:#60a5fa; }
   </style>
+  <script src="webapp_env.js?v=2"></script>
   <script>
-    (function bootEnv(){
-      // 1) Джерело баз із URL (бот передає ?api=&app=)
-      const qs=new URLSearchParams(location.search);
-      const apiFromUrl = qs.get('api');
-      const appFromUrl = qs.get('app');
-      // 2) Фолбек: локально (для ноутбука)
-      const apiDefault = "http://127.0.0.1:8081";
-      const appDefault = location.origin;
-      // 3) Фінально
-      window.API_BASE = apiFromUrl || window.API_BASE || apiDefault;
-      window.APP_BASE = appFromUrl || window.APP_BASE || appDefault;
-
-      // Маленький пінг-індикатор
-      window.addEventListener('DOMContentLoaded', async () => {
-        const el = document.getElementById('ping');
-        try{
-          const r = await fetch(window.API_BASE.replace(/\/$/,'')+'/health', {
-            headers:{'ngrok-skip-browser-warning':'1'}
-          });
-          if(!r.ok) throw new Error('bad');
-          const j=await r.json().catch(()=>({}));
-          el.textContent='API OK';
-          el.className='status ok';
-        }catch(e){
-          el.textContent='API недоступний';
-          el.className='status bad';
-        }
-      });
-
-      // 4) Обгортка fetch: всюди ставимо ngrok-байпас
-      const origFetch = window.fetch;
-      window.fetch = async function(input, init={}){
-        init.headers = init.headers||{};
-        if(typeof init.headers==='object'){
-          init.headers['ngrok-skip-browser-warning']='1';
-        }
-        return origFetch(input, init);
-      };
+    // --- Витягуємо API_BASE/APP_BASE з env або з query (?api=...)
+    (function resolveBases(){
+      const qs = new URLSearchParams(location.search);
+      const api = qs.get('api');
+      const app = qs.get('app');
+      if (api)  window.API_BASE = api.replace(/\/+$/,'');
+      if (app)  window.APP_BASE = app.replace(/\/+$/,'');
+      if (!window.API_BASE) window.API_BASE = (window.API_BASE || '').replace(/\/+$/,'');
+      if (!window.APP_BASE) window.APP_BASE = (window.APP_BASE || location.origin).replace(/\/+$/,'');
     })();
-  </script>
-</head>
-<body>
-  <div class="wrap">
-    <div class="card">
-      <h1>Створити рахунок</h1>
-      <div class="muted">API: <code id="apiBase"></code> • <span id="ping" class="status warn">перевіряю…</span></div>
-      <script>document.getElementById('apiBase').textContent = (window.API_BASE||'') + '/api/invoices';</script>
 
-      <div class="row" style="margin-top:14px">
-        <div class="field">
-          <label>Продавець — Назва</label>
-          <input id="seller_name" placeholder="ФОП Приклад" />
-        </div>
-        <div class="field">
-          <label>Покупець — Назва</label>
-          <input id="buyer_name" placeholder="ТОВ Ромашка" />
-        </div>
-        <div class="field">
-          <label>Адреса продавця</label>
-          <input id="seller_addr" placeholder="Київ" />
-        </div>
-        <div class="field">
-          <label>Адреса покупця</label>
-          <input id="buyer_addr" placeholder="Львів" />
-        </div>
-        <div class="field">
-          <label>IBAN продавця</label>
-          <input id="seller_iban" placeholder="UA..." />
-        </div>
-        <div class="field">
-          <label>ЄДРПОУ/ІПН продавця</label>
-          <input id="seller_tax" placeholder="1234567890" />
-        </div>
-        <div class="field">
-          <label>Email продавця</label>
-          <input id="seller_email" placeholder="test@example.com" />
-        </div>
-        <div class="field">
-          <label>Телефон продавця</label>
-          <input id="seller_phone" placeholder="+380..." />
-        </div>
-        <div class="field">
-          <label>Валюта</label>
-          <select id="currency">
-            <option value="UAH">UAH</option>
-            <option value="USD">USD</option>
-            <option value="EUR">EUR</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Нотатки (необов’язково)</label>
-          <input id="notes" placeholder="Без ПДВ / підпис/печатка необов’язкові" />
-        </div>
-      </div>
-
-      <div style="margin-top:8px">
-        <table id="items">
-          <thead><tr>
-            <th style="width:48%">Найменування</th>
-            <th style="width:10%">К-сть</th>
-            <th style="width:12%">Од.</th>
-            <th style="width:15%">Ціна</th>
-            <th style="width:15%">Сума</th>
-          </tr></thead>
-          <tbody></tbody>
-        </table>
-        <div class="actions">
-          <button class="ghost" onclick="addRow()">+ Додати позицію</button>
-          <span class="muted">Використовуйте кому для копійок: 1234,56</span>
-        </div>
-      </div>
-
-      <div class="actions">
-        <button class="primary" onclick="createInvoice()">Створити рахунок</button>
-        <button onclick="quickFill()" class="ghost">Швидко заповнити приклад</button>
-      </div>
-
-      <div id="result" class="muted" style="margin-top:10px"></div>
-    </div>
-  </div>
-
-  <script>
-    // Telegram WebApp об’єкт (якщо сторінка відкрита в боті)
-    const TG = window.Telegram && window.Telegram.WebApp;
-
-    function addRow(data){
-      const tb = document.querySelector('#items tbody');
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td><input placeholder="Опис" value="${(data&&data.name)||''}"></td>
-        <td><input style="width:80px" value="${(data&&data.qty)||'1'}"></td>
-        <td><input style="width:80px" value="${(data&&data.unit)||'шт'}"></td>
-        <td><input style="width:120px" value="${(data&&data.price)||'100,00'}"></td>
-        <td class="right muted">—</td>
-      `;
-      tb.appendChild(tr);
-      recalc();
-      tr.querySelectorAll('input').forEach(i => i.addEventListener('input', recalc));
+    // --- Безпечний fetch з байпасом ngrok-віталки
+    async function safeFetch(url, opts={}) {
+      const headers = Object.assign(
+        {"ngrok-skip-browser-warning":"1"},
+        (opts.headers||{})
+      );
+      return fetch(url, Object.assign({}, opts, {headers}));
     }
 
-    function recalc(){
-      const rows=[...document.querySelectorAll('#items tbody tr')];
-      rows.forEach(tr=>{
-        const [name,qty,unit,price] = [...tr.querySelectorAll('input')].map(i=>i.value.trim());
-        const nqty = parseFloat((qty||'1').replace(',','.'))||0;
-        const nprice = parseFloat((price||'0').replace(',','.'))||0;
-        const sum = nqty*nprice;
-        tr.querySelector('td.right').textContent = (isNaN(sum)?'—':sum.toFixed(2).replace('.',',')); 
-      });
-    }
-
-    function quickFill(){
-      document.getElementById('seller_name').value='ФОП Іваненко Іван';
-      document.getElementById('seller_addr').value='Київ';
-      document.getElementById('seller_iban').value='UA123...';
-      document.getElementById('seller_tax').value='1234567890';
-      document.getElementById('seller_email').value='test@example.com';
-      document.getElementById('seller_phone').value='+380...';
-      document.getElementById('buyer_name').value='ТОВ Ромашка';
-      document.getElementById('buyer_addr').value='Львів';
-      document.getElementById('currency').value='UAH';
-      document.getElementById('notes').value='Без ПДВ';
-      document.querySelector('#items tbody').innerHTML='';
-      addRow({name:'Послуги обліку', qty:'1', unit:'шт', price:'1000,00'});
-      addRow({name:'Консультація', qty:'2', unit:'год', price:'250,00'});
-    }
-
-    async function createInvoice(){
-      const API = (window.API_BASE||'').replace(/\/$/,'');
-      const result = document.getElementById('result');
-      result.textContent='Створюю…';
-
-      const seller = {
-        name:  document.getElementById('seller_name').value.trim(),
-        address:document.getElementById('seller_addr').value.trim(),
-        iban:  document.getElementById('seller_iban').value.trim(),
-        tax_id:document.getElementById('seller_tax').value.trim(),
-        email: document.getElementById('seller_email').value.trim(),
-        phone: document.getElementById('seller_phone').value.trim()
-      };
-      const buyer = {
-        name:  document.getElementById('buyer_name').value.trim(),
-        address:document.getElementById('buyer_addr').value.trim()
-      };
-      const items = [...document.querySelectorAll('#items tbody tr')].map(tr=>{
-        const [name,qty,unit,price] = [...tr.querySelectorAll('input')].map(i=>i.value.trim());
-        return {name, qty, unit, price};
-      });
-      const invoice = {
-        currency: document.getElementById('currency').value,
-        notes: document.getElementById('notes').value.trim()
-      };
-
+    async function pingAPI(){
+      const statusEl = document.getElementById('apiStatus');
+      const url = (window.API_BASE||'') + '/health';
+      statusEl.textContent = 'перевірка...';
+      statusEl.className = 'muted';
       try{
-        const resp = await fetch(API+'/api/invoices',{
+        const r = await safeFetch(url);
+        if (!r.ok) throw new Error('HTTP '+r.status);
+        const j = await r.json();
+        statusEl.textContent = 'OK';
+        statusEl.className = 'muted ok';
+      }catch(e){
+        statusEl.textContent = 'API недоступний';
+        statusEl.className = 'muted err';
+      }
+      document.getElementById('apiUrl').textContent = (window.API_BASE||'') + '/api/invoices';
+      document.getElementById('apiUrl').href = (window.API_BASE||'') + '/health';
+    }
+
+    function val(id){ return document.getElementById(id).value.trim(); }
+
+    function buildPayload(){
+      // Мінімальний payload для /api/invoices
+      // amount обовʼязковий; решта — як у твоєму API
+      const amount = val('amount') || '1000,00';
+      const description = val('desc') || 'Послуги';
+      const payload = {
+        amount,
+        description,
+        seller: {
+          name: val('s_name'),
+          address: val('s_addr'),
+          iban: val('s_iban'),
+          tax_id: val('s_tax'),
+          email: val('s_email'),
+          phone: val('s_phone')
+        },
+        buyer: {
+          name: val('b_name'),
+          address: val('b_addr'),
+          tax_id: val('b_tax'),
+          email: val('b_email'),
+          phone: val('b_phone')
+        },
+        invoice: {
+          currency: val('currency') || 'UAH',
+          notes: val('notes') || ''
+        },
+        items: [
+          {
+            name: val('it1_name') || 'Послуга/Товар',
+            qty:  val('it1_qty')  || '1',
+            unit: val('it1_unit') || 'шт',
+            price: val('amount')  || '1000,00'
+          }
+        ]
+      };
+      return payload;
+    }
+
+    async function submitForm(){
+      const out = document.getElementById('out');
+      out.textContent = '';
+      const api = (window.API_BASE||'') + '/api/invoices';
+      try{
+        const r = await safeFetch(api,{
           method:'POST',
           headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({seller,buyer,items,invoice})
+          body: JSON.stringify(buildPayload())
         });
-        if(!resp.ok){
-          const t = await resp.text();
-          throw new Error('Помилка створення: '+t);
-        }
-        const data = await resp.json(); // {id, links: {html, pdf}}
-        result.innerHTML = `✅ Рахунок створено: <a href="${data.links.html}" target="_blank">HTML</a>`;
+        const text = await r.text(); // читаємо як текст (на випадок HTML від ngrok)
+        if (!r.ok) throw new Error(text || ('HTTP '+r.status));
+        let data;
+        try { data = JSON.parse(text); } catch { throw new Error('Очікував JSON, отримав HTML (ймовірно ngrok-віталка)'); }
+        // Успіх: покажемо кнопки і спробуємо надіслати в бот через WebApp bridge
+        out.innerHTML = '✅ Створено: <code>'+ (data.invoice?.number || data.id) +'</code>';
+        const linkHtml = (window.API_BASE||'') + '/api/invoices/'+data.id+'/html';
+        const linkPdf  = (window.API_BASE||'') + '/api/invoices/'+data.id+'/pdf?dl=1';
+        document.getElementById('links').innerHTML =
+          '<a href="'+linkHtml+'" target="_blank">Відкрити HTML</a> · '+
+          '<a href="'+linkPdf+'" target="_blank">Завантажити PDF</a>';
 
-        // 1) Завантажити PDF як файл (без відкриття вкладки, без "віталки")
-        await downloadPdf(API + data.links.pdf);
-
-        // 2) Якщо це Telegram WebApp — відправити дані назад у бота
-        try{
-          if (TG && TG.sendData) {
-            TG.sendData(JSON.stringify({
+        // Telegram WebApp sendData (щоб бот знав, що інвойс створено)
+        try {
+          const tg = window.Telegram && window.Telegram.WebApp;
+          if (tg && tg.sendData) {
+            tg.sendData(JSON.stringify({
               type:'invoice_created',
-              id:data.id,
-              html_url: data.links.html,
-              pdf_url: data.links.pdf
+              id: data.id,
+              number: data.invoice?.number || data.id,
+              html_url: linkHtml,
+              pdf_url:  linkPdf
             }));
           }
-        }catch(e){}
-
-      }catch(err){
-        result.textContent = '❌ '+(err.message||err);
+        } catch {}
+      }catch(e){
+        out.innerHTML = '<span class="danger">✖ ' + (e.message || e) + '</span>';
       }
     }
 
-    async function downloadPdf(url){
-      const a = document.createElement('a');
-      const r = await fetch(url, {headers:{}, cache:'no-store'});
-      if(!r.ok) throw new Error('Не вдалося завантажити PDF');
-      const blob = await r.blob();
-      const fileUrl = URL.createObjectURL(blob);
-      a.href = fileUrl;
-      a.download = 'invoice.pdf';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(fileUrl);
-    }
-
-    // Додай перший рядок за замовчуванням
-    document.addEventListener('DOMContentLoaded', ()=> addRow());
+    document.addEventListener('DOMContentLoaded', ()=>{
+      pingAPI();
+      const tg = window.Telegram && window.Telegram.WebApp;
+      if (tg && tg.ready) {
+        try { tg.expand && tg.expand(); tg.ready(); } catch {}
+      }
+    });
   </script>
+</head>
+<body>
+  <div class="card">
+    <h1>Створити рахунок</h1>
+
+    <div class="muted">
+      API: <a id="apiUrl" href="#" target="_blank"></a> · <span id="apiStatus">...</span>
+    </div>
+
+    <div class="toolbar">
+      <button class="btn secondary" onclick="pingAPI()">Перевірити API</button>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>Назва продавця</label>
+        <input id="s_name" placeholder="ТОВ Ромашка" />
+      </div>
+      <div>
+        <label>Назва покупця</label>
+        <input id="b_name" placeholder="ФОП Іваненко" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div><label>Адреса продавця</label><input id="s_addr" placeholder="Київ" /></div>
+      <div><label>Адреса покупця</label><input id="b_addr" placeholder="Львів" /></div>
+    </div>
+
+    <div class="row">
+      <div><label>IBAN продавця</label><input id="s_iban" placeholder="UA..." /></div>
+      <div><label>ЄДРПОУ/ІПН продавця</label><input id="s_tax" placeholder="1234567890" /></div>
+    </div>
+
+    <div class="row">
+      <div><label>Email продавця</label><input id="s_email" placeholder="test@example.com" /></div>
+      <div><label>Телефон продавця</label><input id="s_phone" placeholder="+380..." /></div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>Валюта</label>
+        <select id="currency">
+          <option>UAH</option>
+          <option>USD</option>
+          <option>EUR</option>
+        </select>
+      </div>
+      <div>
+        <label>Нотатки</label>
+        <input id="notes" placeholder="Без ПДВ / підпис/печатка" />
+      </div>
+    </div>
+
+    <table class="items">
+      <thead><tr><th>Найменування</th><th>К-сть</th><th>Од.</th><th>Ціна</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><input id="it1_name" placeholder="Послуга/Товар" value="Послуга/Товар"></td>
+          <td><input id="it1_qty"  placeholder="1" value="1"></td>
+          <td><input id="it1_unit" placeholder="шт" value="шт"></td>
+          <td><input id="amount"    placeholder="1234,56" value="1000,00"></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="row" style="margin-top:12px">
+      <div><label>Опис для рахунку</label><input id="desc" placeholder="Розробка / Консультації" /></div>
+    </div>
+
+    <div class="toolbar">
+      <button class="btn" onclick="submitForm()">Створити рахунок</button>
+      <button class="btn secondary" onclick="document.querySelector('form')?.reset?.()">Очистити</button>
+    </div>
+
+    <div id="out" class="footer"></div>
+    <div id="links" class="footer"></div>
+  </div>
 </body>
 </html>
