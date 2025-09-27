@@ -2,175 +2,188 @@
 <html lang="uk">
 <head>
   <meta charset="utf-8" />
-  <title>InvoUA — створити рахунок</title>
+  <title>InvoUA – створити рахунок</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <!-- 1) Підтягуємо пари базових URL (оновлювані start_all.ps1) -->
-  <script src="webapp_env.js"></script>
-  <!-- 2) TG WebApp SDK (у WebView Telegram) -->
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="./webapp_env.js"></script>
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 16px; }
-    .card { max-width: 720px; margin: 0 auto; padding: 16px; border: 1px solid #e6e6e6; border-radius: 12px; }
+    body { font-family: system-ui, Arial, sans-serif; margin: 16px; }
+    .card { max-width: 760px; margin: 0 auto; padding: 16px; border: 1px solid #ddd; border-radius: 12px; }
+    h1 { font-size: 20px; margin-top: 0; }
+    fieldset { border: 1px solid #eee; border-radius: 8px; margin-bottom: 12px; }
+    legend { font-weight: 600; padding: 0 6px; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    label { font-size: 14px; color: #333; display: block; margin-bottom: 6px; }
-    input, textarea, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 15px; }
-    h1 { font-size: 20px; margin: 0 0 12px; }
-    .actions { display: flex; gap: 12px; margin-top: 16px; }
-    button { padding: 12px 16px; border-radius: 10px; border: none; cursor: pointer; font-weight: 600; }
-    .primary { background: #0a84ff; color: #fff; }
-    .muted { background: #eee; }
-    .hint { font-size: 13px; color: #666; margin-top: 8px; }
-    .ok { color: #0a8; }
-    .err { color: #b00; }
+    label { font-size: 13px; color: #444; display: block; margin-bottom: 4px; }
+    input, textarea, select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 8px; }
+    button { padding: 10px 14px; border: 0; border-radius: 10px; cursor: pointer; }
+    .primary { background: #0d6efd; color: white; }
+    .muted { color: #666; font-size: 13px; }
+    .actions { display:flex; gap: 8px; justify-content: flex-end; }
+    .ok { color: #0a8a0a; }
+    .err{ color: #c00; white-space: pre-wrap; }
   </style>
 </head>
 <body>
   <div class="card">
-    <h1>Створити рахунок</h1>
+    <h1>Створення рахунку (PDF)</h1>
+    <div id="status" class="muted"></div>
 
-    <form id="invForm">
-      <div class="row">
-        <div>
-          <label>Сума (кома)</label>
-          <input id="amount" placeholder="1234,56" required />
+    <form id="f">
+      <fieldset>
+        <legend>Платник (Buyer)</legend>
+        <div class="row">
+          <div><label>Назва/ПІБ</label><input name="buyer.name" placeholder="ТОВ Ромашка" required /></div>
+          <div><label>ЄДРПОУ/ІПН</label><input name="buyer.tax_id" placeholder="12345678" /></div>
+          <div><label>Адреса</label><input name="buyer.address" placeholder="м. Львів, вул. ..." /></div>
+          <div><label>Email</label><input name="buyer.email" type="email" placeholder="client@example.com" /></div>
+          <div><label>Телефон</label><input name="buyer.phone" placeholder="+380..." /></div>
+          <div><label>IBAN</label><input name="buyer.iban" placeholder="UA..." /></div>
         </div>
-        <div>
-          <label>Валюта</label>
-          <select id="currency">
-            <option value="UAH" selected>UAH</option>
-            <option value="USD">USD</option>
-            <option value="EUR">EUR</option>
-          </select>
-        </div>
-      </div>
+      </fieldset>
 
-      <div class="row" style="margin-top:12px">
-        <div>
-          <label>Опис</label>
-          <input id="description" placeholder="Послуги ..." required />
+      <fieldset>
+        <legend>Отримувач (Seller)</legend>
+        <div class="row">
+          <div><label>Назва/ПІБ</label><input name="seller.name" placeholder="ФОП Іваненко Іван" /></div>
+          <div><label>ІПН</label><input name="seller.tax_id" placeholder="1234567890" /></div>
+          <div><label>Адреса</label><input name="seller.address" placeholder="м. Київ, ..." /></div>
+          <div><label>Email</label><input name="seller.email" type="email" placeholder="me@example.com" /></div>
+          <div><label>Телефон</label><input name="seller.phone" placeholder="+380..." /></div>
+          <div><label>IBAN</label><input name="seller.iban" placeholder="UA..." /></div>
         </div>
-        <div>
-          <label>Місто (місце складання)</label>
-          <input id="place_city" placeholder="Київ" />
-        </div>
-      </div>
+      </fieldset>
 
-      <div style="margin-top:12px">
-        <label>Примітки</label>
-        <textarea id="notes" rows="2" placeholder="Без ПДВ"></textarea>
-      </div>
+      <fieldset>
+        <legend>Позиція</legend>
+        <div class="row">
+          <div><label>Назва</label><input name="items.0.name" placeholder="Послуги обліку" required /></div>
+          <div><label>Одиниця</label><input name="items.0.unit" placeholder="шт" value="шт" /></div>
+          <div><label>Кількість</label><input name="items.0.qty" type="number" step="0.01" value="1" /></div>
+          <div><label>Ціна (кома)</label><input name="items.0.price" placeholder="1000,00" required /></div>
+        </div>
+        <div><label>Опис</label><input name="description" placeholder="Додатковий опис (необов’язково)" /></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Інше</legend>
+        <div class="row">
+          <div><label>Валюта</label>
+            <select name="invoice.currency">
+              <option>UAH</option><option>USD</option><option>EUR</option>
+            </select>
+          </div>
+          <div><label>Нотатки</label><input name="invoice.notes" placeholder="Без ПДВ / Договір №..." /></div>
+        </div>
+      </fieldset>
 
       <div class="actions">
         <button type="submit" class="primary">Створити PDF</button>
-        <button type="button" id="openPdf" class="muted">Відкрити PDF</button>
       </div>
-      <div id="msg" class="hint"></div>
     </form>
+
+    <div id="msg"></div>
   </div>
 
 <script>
-(function () {
-  // 0) Пара з URL: беремо з webapp_env.js, але дозволяємо query-перевизначення
-  const url = new URL(window.location.href);
-  const API_BASE = (url.searchParams.get('api') || window.API_BASE || '').replace(/\/+$/,'');
-  const APP_BASE = (url.searchParams.get('app') || window.APP_BASE || location.origin).replace(/\/+$/,'');
+(function(){
+  // 1) середовище (API/APP)
+  const qs = new URLSearchParams(location.search);
+  let API_BASE = (qs.get('api') || (window.API_BASE||'')).replace(/\/+$/,'');
+  let APP_BASE = (qs.get('app') || (window.APP_BASE||location.origin)).replace(/\/+$/,'');
 
-  // 1) Універсальний fetch з хедером, який прибирає splash-сторінку ngrok
-  async function apiFetch(path, opts = {}) {
-    const init = Object.assign({ headers: {} }, opts);
-    init.headers['ngrok-skip-browser-warning'] = '1';
-    return fetch(API_BASE + path, init);
-  }
+  const statusEl = document.getElementById('status');
+  statusEl.textContent = `API: ${API_BASE || '—'} • APP: ${APP_BASE || '—'}`;
 
-  // 2) Надсилання в бот (коли форма в TG WebView)
+  // Telegram WebApp bridge (опційно)
   const tg = window.Telegram && window.Telegram.WebApp;
-  function sendToBot(payload) {
-    try { tg && tg.sendData && tg.sendData(JSON.stringify(payload)); } catch (e) {}
+  if (tg && tg.ready) tg.ready();
+
+  function flatToNested(formData) {
+    const root = {};
+    for (const [k,v] of formData.entries()) {
+      const path = k.split('.'); let obj = root;
+      while (path.length > 1) {
+        const key = path.shift();
+        if (!obj[key]) obj[key] = ( /^\d+$/.test(path[0]) ? [] : {} );
+        obj = obj[key];
+      }
+      obj[path[0]] = v;
+    }
+    // Перетворимо items.{index}.field у масив
+    if (root.items) {
+      const arr = [];
+      Object.keys(root.items).forEach(idx => { arr[idx|0] = root.items[idx]; });
+      root.items = arr.filter(Boolean);
+    }
+    return root;
   }
 
-  // 3) Стан сторінки
-  let lastInvoice = null; // {id, number, pdf_url, public_url}
+  async function postJson(url, data) {
+    // ключовий заголовок, щоб оминути "welcome" екран ngrok
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type':'application/json',
+        'ngrok-skip-browser-warning': '1',
+        'User-Agent':'invoua-webapp'
+      },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) {
+      const txt = await res.text().catch(()=>`${res.status}`);
+      throw new Error(`HTTP ${res.status}: ${txt}`);
+    }
+    return await res.json();
+  }
 
-  // 4) Submit форми -> створюємо інвойс через API (POST /api/invoices), скачати PDF як blob (без splash)
-  document.getElementById('invForm').addEventListener('submit', async (e) => {
+  async function downloadPdf(invId, filenameHint='invoice.pdf') {
+    const url = `${API_BASE}/api/invoices/${encodeURIComponent(invId)}/pdf?dl=1`;
+    const r = await fetch(url, { headers: {'ngrok-skip-browser-warning':'1','User-Agent':'invoua-webapp'} });
+    if (!r.ok) { throw new Error(`PDF HTTP ${r.status}`); }
+    const blob = await r.blob();
+    const a = document.createElement('a');
+    const urlObj = URL.createObjectURL(blob);
+    a.href = urlObj;
+    a.download = filenameHint;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(urlObj); a.remove(); }, 1000);
+  }
+
+  document.getElementById('f').addEventListener('submit', async (e)=>{
     e.preventDefault();
-    const msg = document.getElementById('msg');
-    msg.textContent = "Створюю рахунок…";
-
-    const payload = {
-      amount: document.getElementById('amount').value.trim(),
-      description: document.getElementById('description').value.trim(),
-      invoice: {
-        currency: document.getElementById('currency').value,
-        notes: document.getElementById('notes').value.trim(),
-        place_city: document.getElementById('place_city').value.trim()
-      }
-    };
-
+    const msg = document.getElementById('msg'); msg.textContent = ""; msg.className="";
     try {
-      const res = await apiFetch('/api/invoices', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '1' },
-        body: JSON.stringify(payload)
-      });
-      if (!res.ok) {
-        const t = await res.text();
-        throw new Error(`Помилка API (${res.status}): ${t}`);
-      }
-      const data = await res.json();
-      const invId = data.id;
-      const number = (data.invoice && data.invoice.number) || invId;
+      if (!API_BASE) throw new Error("API_BASE не задано");
+      const data = flatToNested(new FormData(e.target));
 
-      // Скачати PDF як blob (з хедером — без splash), показати save/open
-      const pdfRes = await apiFetch(`/api/invoices/${invId}/pdf?dl=1`);
-      if (!pdfRes.ok) {
-        const t = await pdfRes.text();
-        throw new Error(`PDF помилка (${pdfRes.status}): ${t}`);
-      }
-      const blob = await pdfRes.blob();
-      const a = document.createElement('a');
-      const urlObj = URL.createObjectURL(blob);
-      a.href = urlObj;
-      a.download = (data.invoice && data.invoice.number ? data.invoice.number : `invoice-${invId}`) + ".pdf";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(urlObj), 10000);
+      // якщо не вказали seller/buyer — хай буде порожньо, API сам підставить що може
+      data.invoice = Object.assign({ currency:"UAH" }, data.invoice||{});
 
-      // збережемо для кнопки “Відкрити PDF”
-      lastInvoice = {
-        id: invId,
-        number,
-        pdf_url: `${API_BASE}/api/invoices/${invId}/pdf?dl=1`,
-        public_url: `${API_BASE}/api/invoices/${invId}/html`
-      };
+      const resp = await postJson(`${API_BASE}/api/invoices`, data);
+      const invId = resp.id;
+      const number = (resp.invoice && resp.invoice.number) || invId;
 
-      msg.innerHTML = `<span class="ok">✅ Рахунок ${number} створено і PDF завантажено.</span>`;
+      msg.textContent = `✅ Рахунок створено: ${number}. Завантажую PDF...`;
+      msg.className = "ok";
 
-      // якщо це Telegram WebApp — повідомляємо боту ID
-      sendToBot({ type: 'invoice_created', id: invId, number, pdf_url: lastInvoice.pdf_url, html_url: lastInvoice.public_url });
+      // Скачування PDF як файлу (обхід екрана ngrok + працює в Telegram WebApp)
+      await downloadPdf(invId, `${number}.pdf`);
+
+      // Якщо це Telegram — повідомимо бота
+      try {
+        if (tg && tg.sendData) {
+          tg.sendData(JSON.stringify({
+            type:'invoice_created',
+            id: invId,
+            number,
+            public_url: `${API_BASE}/api/invoices/${invId}/html`,
+            pdf_url: `${API_BASE}/api/invoices/${invId}/pdf?dl=1`
+          }));
+        }
+      } catch(_) {}
     } catch (err) {
-      console.error(err);
-      msg.innerHTML = `<span class="err">❌ ${err.message || err}</span>`;
-    }
-  });
-
-  // 5) Кнопка “Відкрити PDF” — безпосередньо завантажує blob з хедером, відкриває в новій вкладці
-  document.getElementById('openPdf').addEventListener('click', async () => {
-    const msg = document.getElementById('msg');
-    if (!lastInvoice) {
-      msg.textContent = "Спочатку створіть рахунок.";
-      return;
-    }
-    try {
-      const pdfRes = await apiFetch(`/api/invoices/${lastInvoice.id}/pdf?dl=1`);
-      if (!pdfRes.ok) throw new Error(`PDF помилка (${pdfRes.status})`);
-      const blob = await pdfRes.blob();
-      const urlObj = URL.createObjectURL(blob);
-      window.open(urlObj, '_blank');
-      setTimeout(() => URL.revokeObjectURL(urlObj), 15000);
-    } catch (e) {
-      msg.innerHTML = `<span class="err">❌ ${e.message || e}</span>`;
+      msg.textContent = "❌ Помилка: " + (err && err.message || err);
+      msg.className = "err";
     }
   });
 })();
