@@ -1,230 +1,121 @@
 <!doctype html>
 <html lang="uk">
 <head>
-  <meta charset="utf-8" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"
-  />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Створення рахунку</title>
   <style>
-    :root {
-      --c1:#134a9c; --c2:#3a7bd5; --bd:#e5e9f2;
-    }
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin:0; background:#f7f9fc; color:#111; }
-    .wrap { max-width: 720px; margin: 20px auto; padding: 16px; }
-    .card { background:#fff; border:1px solid var(--bd); border-radius:14px; padding:16px; box-shadow: 0 1px 8px rgba(0,0,0,.04); }
-    h1 { margin:0 0 12px; font-size:22px; color:var(--c1); }
-    fieldset { border:1px solid var(--bd); border-radius:10px; margin:12px 0; padding:12px; }
-    legend { padding:0 8px; color:var(--c1); font-weight:600; }
-    .g { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-    .g3 { display:grid; grid-template-columns:2fr 1fr 1fr; gap:10px; }
-    label { font-size:12px; color:#444; display:block; margin-bottom:4px; }
-    input, textarea, select {
-      width:100%; padding:10px; border:1px solid var(--bd); border-radius:10px; background:#fff; outline:none;
-    }
-    textarea { min-height:84px; resize:vertical; }
-    .row { display:flex; gap:10px; align-items:center; }
-    .btn {
-      appearance:none; border:0; border-radius:12px; padding:12px 16px;
-      background:var(--c1); color:#fff; font-weight:600; cursor:pointer;
-    }
-    .btn.secondary { background:#fff; color:var(--c1); border:1px solid var(--c1); }
-    .muted { color:#666; font-size:12px; }
-    .out { margin-top:14px; display:none; }
-    .out .ok { color:#0a7f3f; font-weight:600; }
-    .err { color:#c62828; font-weight:600; }
-    .actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
-    .badge { display:inline-block; padding:4px 8px; background:#eef5ff; border:1px solid var(--bd); border-radius:999px; font-size:12px; color:#234; }
-    .note { font-size:13px; color:#333; }
-    .foot { margin-top:10px; font-size:12px; color:#555; }
+    body{font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; padding:16px;}
+    h1{margin:0 0 12px 0;}
+    .row{display:grid; gap:8px; grid-template-columns: 1fr 1fr;}
+    .row > div{display:flex; flex-direction:column;}
+    label{font-size:12px; color:#555;}
+    input,textarea,select{padding:8px; font-size:14px;}
+    button{padding:10px 14px; font-size:15px; cursor:pointer;}
+    .w100{width:100%;}
+    .mt{margin-top:12px;}
+    .log{font-family:ui-monospace,Consolas,monospace; font-size:12px; color:#666; margin-top:12px; white-space:pre-wrap;}
   </style>
-  <script src="./webapp_env.js"></script>
+  <script defer src="webapp_env.js"></script>
 </head>
 <body>
-  <div class="wrap">
-    <div class="card">
-      <h1>Рахунок (форма)</h1>
-      <div class="badge">API: <span id="apiHost">—</span></div>
-      <form id="f">
-        <fieldset>
-          <legend>Платник</legend>
-          <div class="g">
-            <div>
-              <label>Назва платника</label>
-              <input id="payer_name" placeholder="ТОВ «Клієнт»" />
-            </div>
-            <div>
-              <label>Код / ІПН (необов’язково)</label>
-              <input id="payer_reg" placeholder="ЄДРПОУ / ІПН" />
-            </div>
-          </div>
-          <label>Реквізити/адреса (необов’язково)</label>
-          <textarea id="payer_req" placeholder="Адреса, ІБАН, інші деталі"></textarea>
-        </fieldset>
+  <h1>Рахунок</h1>
 
-        <fieldset>
-          <legend>Отримувач (ваші реквізити)</legend>
-          <div class="g">
-            <div>
-              <label>Назва</label>
-              <input id="seller_name" placeholder="ФОП/ТОВ «Ви»" />
-            </div>
-            <div>
-              <label>Код / ІПН</label>
-              <input id="seller_reg" placeholder="ЄДРПОУ / ІПН" />
-            </div>
-          </div>
-          <label>IBAN / Банківські реквізити</label>
-          <input id="seller_iban" placeholder="UA.. (необов’язково)" />
-        </fieldset>
-
-        <fieldset>
-          <legend>Позиція</legend>
-          <label>Опис</label>
-          <input id="item_desc" placeholder="Розробка сайту" />
-          <div class="g3" style="margin-top:8px">
-            <div>
-              <label>Одиниці (шт/год/послуга…)</label>
-              <input id="item_unit" placeholder="послуга" />
-            </div>
-            <div>
-              <label>Кількість</label>
-              <input id="item_qty" type="number" step="0.01" value="1" />
-            </div>
-            <div>
-              <label>Ціна, грн</label>
-              <input id="item_price" type="number" step="0.01" placeholder="1000" />
-            </div>
-          </div>
-          <div class="note" style="margin-top:6px">
-            Сума для API приймається з комою: <code>1234,56</code>. Ми порахуємо її автоматично.
-          </div>
-        </fieldset>
-
-        <div class="row" style="margin-top:10px">
-          <button class="btn" type="submit">Створити рахунок</button>
-          <span class="muted">PDF отримаєте в чаті бота або відкриєте у браузері.</span>
-        </div>
-      </form>
-
-      <div id="out" class="out">
-        <div id="msg"></div>
-        <div class="actions" id="actions"></div>
-        <div class="foot">
-          Підказка: якщо відкрили цю форму всередині Telegram, краще скористайтесь кнопкою
-          <b>“Отримати PDF у чаті”</b>.
-        </div>
-      </div>
+  <div class="row">
+    <div>
+      <label>Сума (кома)</label>
+      <input id="amount" placeholder="1234,56" />
+    </div>
+    <div>
+      <label>Кількість</label>
+      <input id="qty" type="number" step="0.001" value="1" />
+    </div>
+    <div>
+      <label>Одиниці</label>
+      <input id="unit" value="шт" />
+    </div>
+    <div>
+      <label>Платник</label>
+      <input id="payer" placeholder="Назва платника" />
+    </div>
+    <div>
+      <label>Отримувач</label>
+      <input id="receiver" placeholder="Назва отримувача" />
     </div>
   </div>
 
+  <div class="mt">
+    <label>Опис</label>
+    <textarea id="description" rows="3" class="w100" placeholder="За що рахунок?"></textarea>
+  </div>
+
+  <div class="mt">
+    <button id="btnCreate">Створити рахунок та завантажити PDF</button>
+  </div>
+
+  <div id="log" class="log"></div>
+
 <script>
 (function(){
-  // Параметри оточення
-  const API_BASE = (window.API_BASE || "").replace(/\/+$/,'');
-  const APP_BASE = (window.APP_BASE || "").replace(/\/+$/,'');
-  document.getElementById('apiHost').textContent = API_BASE || '—';
+  // Джерела із webapp_env.js або query (?api=...&app=...) — обидва варіанти підтримуємо
+  const params = new URLSearchParams(location.search);
+  const apiBase = (params.get("api") || window.API_BASE || "").replace(/\/+$/,"");
+  const appBase = (params.get("app") || window.APP_BASE || "").replace(/\/+$/,"");
 
-  const qs = new URLSearchParams(location.search);
-  const chatIdFromTG = qs.get('u') || '';
+  const $ = (id) => document.getElementById(id);
+  const log = (m) => { const el=$("log"); el.textContent += m + "\n"; };
 
-  const f   = document.getElementById('f');
-  const out = document.getElementById('out');
-  const msg = document.getElementById('msg');
-  const actions = document.getElementById('actions');
-
-  function toAmountStr(x){
-    if (x == null || x === '') return '';
-    const n = Number(x);
-    if (Number.isFinite(n)) {
-      return n.toFixed(2).replace('.', ','); // “1234,56”
+  async function createInvoice(payload){
+    const r = await fetch(`${apiBase}/api/invoices`, {
+      method: "POST",
+      headers: { "Content-Type":"application/json", "ngrok-skip-browser-warning":"1", "User-Agent":"invoua-webapp" },
+      body: JSON.stringify(payload)
+    });
+    if(!r.ok){
+      const t = await r.text().catch(()=> "");
+      throw new Error(`Create failed: ${r.status} ${t}`);
     }
-    return String(x);
+    return await r.json();
+  }
+
+  async function downloadPdf(invId){
+    const url = `${apiBase}/api/invoices/${encodeURIComponent(invId)}/pdf?dl=1`;
+    const r = await fetch(url, {
+      method: "GET",
+      headers: { "ngrok-skip-browser-warning":"1", "User-Agent":"invoua-webapp" }
+    });
+    if(!r.ok){
+      const t = await r.text().catch(()=> "");
+      throw new Error(`PDF fetch failed: ${r.status} ${t}`);
     }
+    const blob = await r.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `Invoice_${invId}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    URL.revokeObjectURL(a.href);
+    a.remove();
+  }
 
-  f.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    actions.innerHTML = '';
-    msg.className = '';
-    msg.textContent = '';
-
-    // Збираємо дані форми
-    const payer_name  = document.getElementById('payer_name').value.trim();
-    const payer_reg   = document.getElementById('payer_reg').value.trim();
-    const payer_req   = document.getElementById('payer_req').value.trim();
-    const seller_name = document.getElementById('seller_name').value.trim();
-    const seller_reg  = document.getElementById('seller_reg').value.trim();
-    const seller_iban = document.getElementById('seller_iban').value.trim();
-
-    const item_desc  = document.getElementById('item_desc').value.trim();
-    const item_unit  = document.getElementById('item_unit').value.trim() || 'послуга';
-    const item_qty   = document.getElementById('item_qty').value.trim() || '1';
-    const item_price = document.getElementById('item_price').value.trim();
-
-    // Рахуємо суму
-    const total = (Number(item_qty||'0') * Number(item_price||'0')).toFixed(2);
-    const amount = toAmountStr(total); // <- те, що любить API
-
-    // Опис (склеюємо для бекенда)
-    let parts = [];
-    if (item_desc) parts.push(item_desc);
-    parts.push(`${item_qty} ${item_unit} × ${toAmountStr(item_price)} грн`);
-    if (payer_name)  parts.push(`Платник: ${payer_name}`);
-    if (seller_name) parts.push(`Отримувач: ${seller_name}`);
-    if (seller_iban) parts.push(`IBAN: ${seller_iban}`);
-    const description = parts.join(" | ");
-
-    if (!API_BASE) {
-      out.style.display = 'block';
-      msg.className = 'err';
-      msg.textContent = 'API_BASE не налаштовано.';
-      return;
-    }
-
-    try {
-      const resp = await fetch(`${API_BASE}/api/invoices`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          // якщо API під ngrok — цей хедер прибирає “браузер-варнінг” (деякі браузери ігнорують, але не шкодить)
-          'ngrok-skip-browser-warning': '1'
-        },
-        body: JSON.stringify({ amount, description })
-      });
-      if (!resp.ok) {
-        const t = await resp.text().catch(()=> '');
-        throw new Error(`API ${resp.status}: ${t || resp.statusText}`);
-      }
-      const data = await resp.json();
-      const id = data?.id || '';
-
-      out.style.display = 'block';
-      msg.className = 'ok';
-      msg.textContent = `✅ Рахунок створено (ID: ${id}). Оберіть дію:`;
-
-      // 1) Отримати у чаті (deep-link до вашого бота @Invo_UA_bot)
-      const a1 = document.createElement('a');
-      a1.className = 'btn';
-      a1.textContent = 'Отримати PDF у чаті';
-      a1.href = `https://t.me/Invo_UA_bot?start=pdf_${id}`;
-      a1.target = '_blank';
-      a1.rel = 'noopener';
-      actions.appendChild(a1);
-
-      // 2) Відкрити у браузері (запасний варіант)
-      const a2 = document.createElement('a');
-      a2.className = 'btn secondary';
-      a2.textContent = 'Відкрити PDF у браузері';
-      a2.href = `${API_BASE}/api/invoices/${id}/pdf?dl=1`;
-      a2.target = '_blank';
-      a2.rel = 'noopener';
-      actions.appendChild(a2);
-
-    } catch (err) {
-      out.style.display = 'block';
-      msg.className = 'err';
-      msg.textContent = `❌ Помилка: ${err?.message || err}`;
+  $("btnCreate").addEventListener("click", async ()=>{
+    const payload = {
+      amount: $("amount").value.trim(),
+      description: $("description").value.trim(),
+      payer: $("payer").value.trim() || null,
+      receiver: $("receiver").value.trim() || null,
+      qty: parseFloat($("qty").value || "1"),
+      unit: $("unit").value.trim() || "шт"
+    };
+    log("Створюю рахунок…");
+    try{
+      const data = await createInvoice(payload);
+      log(`OK: id=${data.id}`);
+      await downloadPdf(data.id);           // ← обхід банера ngrok/3200
+      log("PDF збережено користувачу.");
+    }catch(e){
+      log("ПОМИЛКА: " + e.message);
+      alert("Помилка: " + e.message);
     }
   });
 })();
