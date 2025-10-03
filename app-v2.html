@@ -2,122 +2,72 @@
 <html lang="uk">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Створення рахунку</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Форма рахунку</title>
   <style>
-    body{font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; padding:16px;}
-    h1{margin:0 0 12px 0;}
-    .row{display:grid; gap:8px; grid-template-columns: 1fr 1fr;}
-    .row > div{display:flex; flex-direction:column;}
-    label{font-size:12px; color:#555;}
-    input,textarea,select{padding:8px; font-size:14px;}
-    button{padding:10px 14px; font-size:15px; cursor:pointer;}
-    .w100{width:100%;}
-    .mt{margin-top:12px;}
-    .log{font-family:ui-monospace,Consolas,monospace; font-size:12px; color:#666; margin-top:12px; white-space:pre-wrap;}
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin:16px; }
+    .row { margin-bottom: 10px; }
+    label { display:block; font-weight:600; margin-bottom:4px; }
+    input, textarea { width:100%; padding:8px; border:1px solid #ccc; border-radius:6px; }
+    button { padding:10px 16px; border:0; border-radius:8px; background:#0b5ed7; color:#fff; font-weight:700; cursor:pointer; }
+    .hint { color:#666; font-size:12px; margin-top:4px; }
+    .ok { color:#0a7; }
+    .err { color:#c00; white-space:pre-wrap; }
   </style>
-  <script defer src="webapp_env.js"></script>
+  <script src="./webapp_env.js"></script>
 </head>
 <body>
-  <h1>Рахунок</h1>
+  <h2>Створити рахунок</h2>
 
   <div class="row">
-    <div>
-      <label>Сума (кома)</label>
-      <input id="amount" placeholder="1234,56" />
-    </div>
-    <div>
-      <label>Кількість</label>
-      <input id="qty" type="number" step="0.001" value="1" />
-    </div>
-    <div>
-      <label>Одиниці</label>
-      <input id="unit" value="шт" />
-    </div>
-    <div>
-      <label>Платник</label>
-      <input id="payer" placeholder="Назва платника" />
-    </div>
-    <div>
-      <label>Отримувач</label>
-      <input id="receiver" placeholder="Назва отримувача" />
-    </div>
+    <label>Сума (напр. 1234,56)</label>
+    <input id="amount" placeholder="1234,56" />
   </div>
-
-  <div class="mt">
+  <div class="row">
     <label>Опис</label>
-    <textarea id="description" rows="3" class="w100" placeholder="За що рахунок?"></textarea>
+    <textarea id="descr" rows="3" placeholder="Послуги/товари"></textarea>
+  </div>
+  <div class="row">
+    <label>Платник (необов’язково)</label>
+    <input id="payer" placeholder="ТОВ «Платник», код, адреса…" />
   </div>
 
-  <div class="mt">
-    <button id="btnCreate">Створити рахунок та завантажити PDF</button>
-  </div>
+  <button id="btn">Згенерувати PDF</button>
 
-  <div id="log" class="log"></div>
+  <div id="msg" class="row"></div>
 
 <script>
 (function(){
-  // Джерела із webapp_env.js або query (?api=...&app=...) — обидва варіанти підтримуємо
-  const params = new URLSearchParams(location.search);
-  const apiBase = (params.get("api") || window.API_BASE || "").replace(/\/+$/,"");
-  const appBase = (params.get("app") || window.APP_BASE || "").replace(/\/+$/,"");
+  const API = (window.API_BASE||"").trim();   // має бути https://....ngrok-free.app або http://127.0.0.1:8081
+  const APP = (window.APP_BASE||"").trim();   // може бути пустим
 
-  const $ = (id) => document.getElementById(id);
-  const log = (m) => { const el=$("log"); el.textContent += m + "\n"; };
-
-  async function createInvoice(payload){
-    const r = await fetch(`${apiBase}/api/invoices`, {
-      method: "POST",
-      headers: { "Content-Type":"application/json", "ngrok-skip-browser-warning":"1", "User-Agent":"invoua-webapp" },
-      body: JSON.stringify(payload)
-    });
-    if(!r.ok){
-      const t = await r.text().catch(()=> "");
-      throw new Error(`Create failed: ${r.status} ${t}`);
+  const $ = (id)=>document.getElementById(id);
+  $("btn").onclick = async ()=>{
+    $("msg").innerHTML = "Надсилаю...";
+    try {
+      const payload = {
+        amount: $("amount").value.trim(),
+        description: $("descr").value.trim(),
+        payer_name: $("payer").value.trim() || null
+      };
+      const r = await fetch(API + "/api/invoices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (!r.ok) {
+        const t = await r.text();
+        throw new Error("API error " + r.status + ": " + t);
+      }
+      const data = await r.json();
+      const pdfUrl = API + "/api/invoices/" + data.id + "/pdf?dl=1";
+      $("msg").innerHTML = `<div class="ok">Створено: #${data.id}. <a href="${pdfUrl}" target="_blank">Завантажити PDF</a></div>`;
+      // Автовідкриття (може блокуватись у мобільних):
+      window.open(pdfUrl, "_blank");
+    } catch (err) {
+      $("msg").innerHTML = `<div class="err">${err}</div>`;
     }
-    return await r.json();
-  }
-
-  async function downloadPdf(invId){
-    const url = `${apiBase}/api/invoices/${encodeURIComponent(invId)}/pdf?dl=1`;
-    const r = await fetch(url, {
-      method: "GET",
-      headers: { "ngrok-skip-browser-warning":"1", "User-Agent":"invoua-webapp" }
-    });
-    if(!r.ok){
-      const t = await r.text().catch(()=> "");
-      throw new Error(`PDF fetch failed: ${r.status} ${t}`);
-    }
-    const blob = await r.blob();
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `Invoice_${invId}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    URL.revokeObjectURL(a.href);
-    a.remove();
-  }
-
-  $("btnCreate").addEventListener("click", async ()=>{
-    const payload = {
-      amount: $("amount").value.trim(),
-      description: $("description").value.trim(),
-      payer: $("payer").value.trim() || null,
-      receiver: $("receiver").value.trim() || null,
-      qty: parseFloat($("qty").value || "1"),
-      unit: $("unit").value.trim() || "шт"
-    };
-    log("Створюю рахунок…");
-    try{
-      const data = await createInvoice(payload);
-      log(`OK: id=${data.id}`);
-      await downloadPdf(data.id);           // ← обхід банера ngrok/3200
-      log("PDF збережено користувачу.");
-    }catch(e){
-      log("ПОМИЛКА: " + e.message);
-      alert("Помилка: " + e.message);
-    }
-  });
+  };
 })();
 </script>
 </body>
