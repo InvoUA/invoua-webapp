@@ -38,34 +38,58 @@
 
 <script>
 (function(){
-  const API = (window.API_BASE||"").trim();   // має бути https://....ngrok-free.app або http://127.0.0.1:8081
-  const APP = (window.APP_BASE||"").trim();   // може бути пустим
+  const API = (window.API_BASE||"").trim();   // наприклад https://....ngrok-free.app або http://127.0.0.1:8081
+  const APP = (window.APP_BASE||"").trim();
 
   const $ = (id)=>document.getElementById(id);
+
+  function ngrokHeaders() {
+    return {
+      "Content-Type": "application/json",
+      // головне — цей заголовок!
+      "ngrok-skip-browser-warning": "1",
+      // додатково — дружній User-Agent (не обов'язково, але інколи допомагає)
+      "User-Agent": "invoua-webform"
+    };
+  }
+
   $("btn").onclick = async ()=>{
+    const amount = $("amount").value.trim();
+    const description = $("descr").value.trim();
+    const payer_name = $("payer").value.trim() || null;
+
+    if (!API) {
+      $("msg").innerHTML = `<div class="err">Не задано API_BASE у webapp_env.js</div>`;
+      return;
+    }
+    if (!amount || !description) {
+      $("msg").innerHTML = `<div class="err">Заповни "Сума" та "Опис".</div>`;
+      return;
+    }
+
     $("msg").innerHTML = "Надсилаю...";
+
     try {
-      const payload = {
-        amount: $("amount").value.trim(),
-        description: $("descr").value.trim(),
-        payer_name: $("payer").value.trim() || null
-      };
       const r = await fetch(API + "/api/invoices", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        headers: ngrokHeaders(),
+        body: JSON.stringify({ amount, description, payer_name })
       });
+
       if (!r.ok) {
-        const t = await r.text();
-        throw new Error("API error " + r.status + ": " + t);
+        const t = await r.text().catch(()=> "");
+        throw new Error(`API ${r.status}: ${t || "невідома помилка"}`);
       }
+
       const data = await r.json();
-      const pdfUrl = API + "/api/invoices/" + data.id + "/pdf?dl=1";
-      $("msg").innerHTML = `<div class="ok">Створено: #${data.id}. <a href="${pdfUrl}" target="_blank">Завантажити PDF</a></div>`;
-      // Автовідкриття (може блокуватись у мобільних):
-      window.open(pdfUrl, "_blank");
+      const pdfUrl = API + "/api/invoices/" + data.id + "/pdf?dl=1&ngrok-skip-browser-warning=1";
+
+      $("msg").innerHTML = `<div class="ok">Створено: #${data.id}. <a href="${pdfUrl}" target="_blank" rel="noopener">Завантажити PDF</a></div>`;
+
+      // спробуємо авто-відкрити (може блокуватись у мобільних)
+      try { window.open(pdfUrl, "_blank"); } catch (e) {}
     } catch (err) {
-      $("msg").innerHTML = `<div class="err">${err}</div>`;
+      $("msg").innerHTML = `<div class="err">${String(err.message || err)}</div>`;
     }
   };
 })();
