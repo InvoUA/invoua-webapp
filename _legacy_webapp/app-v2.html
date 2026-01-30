@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Форма рахунку</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin:16px; }
+    .row { margin-bottom: 10px; }
+    label { display:block; font-weight:600; margin-bottom:4px; }
+    input, textarea { width:100%; padding:8px; border:1px solid #ccc; border-radius:6px; }
+    button { padding:10px 16px; border:0; border-radius:8px; background:#0b5ed7; color:#fff; font-weight:700; cursor:pointer; }
+    .hint { color:#666; font-size:12px; margin-top:4px; }
+    .ok { color:#0a7; }
+    .err { color:#c00; white-space:pre-wrap; }
+  </style>
+  <script src="./webapp_env.js"></script>
+</head>
+<body>
+  <h2>Створити рахунок</h2>
+
+  <div class="row">
+    <label>Сума (напр. 1234,56)</label>
+    <input id="amount" placeholder="1234,56" />
+  </div>
+  <div class="row">
+    <label>Опис</label>
+    <textarea id="descr" rows="3" placeholder="Послуги/товари"></textarea>
+  </div>
+  <div class="row">
+    <label>Платник (необов’язково)</label>
+    <input id="payer" placeholder="ТОВ «Платник», код, адреса…" />
+  </div>
+
+  <button id="btn">Згенерувати PDF</button>
+
+  <div id="msg" class="row"></div>
+
+<script>
+(function(){
+  const API = (window.API_BASE||"").trim();   // наприклад https://....ngrok-free.app або http://127.0.0.1:8081
+  const APP = (window.APP_BASE||"").trim();
+
+  const $ = (id)=>document.getElementById(id);
+
+  function ngrokHeaders() {
+    return {
+      "Content-Type": "application/json",
+      // головне — цей заголовок!
+      "ngrok-skip-browser-warning": "1",
+      // додатково — дружній User-Agent (не обов'язково, але інколи допомагає)
+      "User-Agent": "invoua-webform"
+    };
+  }
+
+  $("btn").onclick = async ()=>{
+    const amount = $("amount").value.trim();
+    const description = $("descr").value.trim();
+    const payer_name = $("payer").value.trim() || null;
+
+    if (!API) {
+      $("msg").innerHTML = `<div class="err">Не задано API_BASE у webapp_env.js</div>`;
+      return;
+    }
+    if (!amount || !description) {
+      $("msg").innerHTML = `<div class="err">Заповни "Сума" та "Опис".</div>`;
+      return;
+    }
+
+    $("msg").innerHTML = "Надсилаю...";
+
+    try {
+      const r = await fetch(API + "/api/invoices", {
+        method: "POST",
+        headers: ngrokHeaders(),
+        body: JSON.stringify({ amount, description, payer_name })
+      });
+
+      if (!r.ok) {
+        const t = await r.text().catch(()=> "");
+        throw new Error(`API ${r.status}: ${t || "невідома помилка"}`);
+      }
+
+      const data = await r.json();
+      const pdfUrl = API + "/api/invoices/" + data.id + "/pdf?dl=1&ngrok-skip-browser-warning=1";
+
+      $("msg").innerHTML = `<div class="ok">Створено: #${data.id}. <a href="${pdfUrl}" target="_blank" rel="noopener">Завантажити PDF</a></div>`;
+
+      // спробуємо авто-відкрити (може блокуватись у мобільних)
+      try { window.open(pdfUrl, "_blank"); } catch (e) {}
+    } catch (err) {
+      $("msg").innerHTML = `<div class="err">${String(err.message || err)}</div>`;
+    }
+  };
+})();
+</script>
+</body>
+</html>
