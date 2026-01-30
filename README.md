@@ -1,20 +1,13 @@
-# InvoUA — Invoice in 60 seconds
+﻿# invoua-webapp
 
-This repository hosts the legacy Telegram Web App frontend
-that was previously used for InvoUA.
+Static GitHub Pages repository for **invoua.com**.
 
-⚠️ Status (2026):
-- Core business logic moved to n8n (Docker, self-hosted)
-- Backend: FastAPI
-- This frontend is kept for compatibility and reference
-- Active restructuring in progress
+## What this repo contains
+- `index.html` — gateway landing page (entry point)
+- `_legacy_webapp/` — frozen legacy Telegram WebApp frontend (kept for compatibility/reference)
 
-## Architecture (current)
-- Telegram Bot
-- n8n workflows (primary logic)
-- FastAPI backend
-- GitHub Pages used only for legacy frontend
+## What this repo does NOT contain
+Business logic (n8n workflows, FastAPI backend, Odoo integration) lives in separate repositories / infrastructure.
 
-## Notes
-- Do NOT remove files from root without migration plan
-- Legacy code will be moved to /_legacy_webapp step-by-step
+## Workflow
+All changes to `main` are made through Pull Requests (repository ruleset).

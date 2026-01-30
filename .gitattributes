@@ -1,0 +1,19 @@
+﻿# Text files: enforce LF in repo
+*.md   text eol=lf
+*.txt  text eol=lf
+*.html text eol=lf
+*.css  text eol=lf
+*.js   text eol=lf
+*.json text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+
+# Binary files
+*.ttf  binary
+*.woff binary
+*.woff2 binary
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.webp binary
+*.pdf  binary
