@@ -2,237 +2,64 @@
 <html lang="uk">
 <head>
   <meta charset="utf-8">
+  <title>InvoUA — рахунки за 60 секунд</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>InvoUA — рахунок за 60 секунд</title>
   <style>
-    :root { --gap: 10px; }
-    body { font-family: system-ui, -apple-system, Arial, sans-serif; margin: 0; padding: 14px; }
-    h1 { font-size: 20px; margin: 0 0 12px 0; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); }
-    label { font-size:12px; color:#444; }
-    input, select { width:100%; padding:8px; border:1px solid #ccc; border-radius:8px; }
-    table { width:100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { border:1px solid #ddd; padding:8px; font-size:14px; }
-    th { background:#f8f8f8; text-align:left; }
-    .btns { margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; }
-    button { padding:10px 14px; border:0; border-radius:999px; background:#0a84ff; color:#fff; font-weight:600; }
-    button.secondary { background:#eee; color:#222; }
-    .muted { color:#666; font-size:12px; }
-    .toast { margin-top:10px; font-size:13px; }
-    .ok { color: #0a7d2f; }
-    .err { color: #b00020; }
-    .hidden { display:none; }
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: #f7f7f9;
+      margin: 0;
+      padding: 40px 16px;
+      color: #222;
+    }
+    .wrap {
+      max-width: 720px;
+      margin: 0 auto;
+      background: #fff;
+      border-radius: 12px;
+      padding: 32px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.08);
+    }
+    h1 { margin-top: 0; }
+    .btn {
+      display: block;
+      margin: 12px 0;
+      padding: 14px 18px;
+      text-align: center;
+      text-decoration: none;
+      font-weight: 600;
+      border-radius: 10px;
+      background: #2b6cff;
+      color: #fff;
+    }
+    .btn.secondary {
+      background: #eee;
+      color: #222;
+    }
+    .note {
+      margin-top: 24px;
+      font-size: 14px;
+      color: #666;
+    }
   </style>
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
-  <h1>InvoUA — рахунок за 60 секунд</h1>
+  <div class="wrap">
+    <h1>InvoUA</h1>
+    <p>Рахунки та документи для ФОП і малого бізнесу — за 60 секунд.</p>
 
-  <div class="grid">
-    <div>
-      <label>Покупець (назва/ПІБ)</label>
-      <input id="buyer_name" placeholder="ТОВ Приклад">
-    </div>
-    <div>
-      <label>Валюта</label>
-      <select id="currency">
-        <option>UAH</option><option>USD</option><option>EUR</option>
-      </select>
+    <a class="btn" href="https://t.me/" target="_blank">
+      🚀 Відкрити в Telegram
+    </a>
+
+    <a class="btn secondary" href="/_legacy_webapp/index.html">
+      🧾 Старий інтерфейс (legacy)
+    </a>
+
+    <div class="note">
+      ⚠️ Legacy залишено лише для сумісності.<br>
+      Основна логіка перенесена в Telegram + n8n + FastAPI.
     </div>
   </div>
-
-  <table id="items">
-    <thead>
-      <tr>
-        <th>Найменування</th><th style="width:80px">К-сть</th><th style="width:80px">Од.</th><th style="width:120px">Ціна</th><th style="width:40px"></th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-
-  <div class="btns">
-    <button id="add">+ Додати позицію</button>
-    <button id="save">Зберегти рахунок</button>
-  </div>
-
-  <div id="result" class="hidden">
-    <div class="btns">
-      <button id="btnPdf">Завантажити PDF</button>
-      <button id="btnHtml" class="secondary">Поділитися (HTML)</button>
-      <button id="btnNew" class="secondary">Новий</button>
-    </div>
-    <div id="toast" class="toast ok"></div>
-  </div>
-
-  <p class="muted">Ця сторінка працює як Telegram Mini App. API-адреса береться з параметра <code>?api=</code>.</p>
-
-<script>
-(function(){
-  const tg = window.Telegram?.WebApp;
-  if (tg) try { tg.expand(); } catch(e) {}
-
-  const $ = s => document.querySelector(s);
-  const qs = new URLSearchParams(location.search);
-  const API = qs.get('api')?.replace(/\/$/,'') || '';
-
-  const tbody = $('#items tbody');
-  function addRow(name='', qty='1', unit='se', price='0'){
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td><input class="name" placeholder="Послуга" value="${name}"></td>
-      <td><input class="qty" type="number" step="0.01" value="${qty}"></td>
-      <td><input class="unit" value="${unit}"></td>
-      <td><input class="price" type="number" step="0.01" value="${price}"></td>
-      <td><button class="secondary del">x</button></td>`;
-    tr.querySelector('.del').onclick = () => tr.remove();
-    tbody.appendChild(tr);
-  }
-  $('#add').onclick = () => addRow();
-  addRow('Консультаційні послуги', '1', 'se', '1200');
-  addRow('Реклама', '1', 'se', '500');
-
-  function collectItems(){
-    return [...tbody.querySelectorAll('tr')].map(tr => ({
-      name: tr.querySelector('.name').value.trim(),
-      qty: tr.querySelector('.qty').value || '1',
-      unit: tr.querySelector('.unit').value || 'se',
-      price: tr.querySelector('.price').value || '0'
-    })).filter(it => it.name);
-  }
-
-  async function saveInvoice(){
-    if(!API){ alert('Не задано ?api= у URL'); return; }
-    const payload = {
-      invoice: { currency: $('#currency').value },
-      buyer:   { name: $('#buyer_name').value.trim() },
-      items:   collectItems()
-    };
-    const r = await fetch(API + '/api/invoices', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(payload)
-    });
-    if(!r.ok){ throw new Error('API error ' + r.status); }
-    return await r.json();
-  }
-
-  function money(x){ return (Number(x)||0).toFixed(2); }
-
-  async function fetchInvoiceJson(id){
-    const url = `${API}/api/invoices/${id}`;
-    const r = await fetch(url, { headers: { 'ngrok-skip-browser-warning': '1' }});
-    if(!r.ok) throw new Error('GET JSON ' + r.status);
-    return await r.json();
-  }
-
-  function pdfFromJson(doc){
-    const { jsPDF } = window.jspdf || {};
-    if(!jsPDF){ throw new Error('jsPDF не завантажився'); }
-
-    const pdf = new jsPDF('p','mm','a4');
-    const M = 12, W = pdf.internal.pageSize.getWidth() - M*2;
-
-    pdf.setFontSize(16); pdf.setFont('helvetica','bold');
-    pdf.text(`Рахунок ${doc.invoice.number || ''}`, M, 18);
-    pdf.setFontSize(10); pdf.setFont('helvetica','normal');
-    pdf.text(`Дата: ${doc.invoice.issue_date || ''}`, M, 24);
-
-    const s = doc.seller || {}, b = doc.buyer || {};
-    let y = 32;
-    pdf.setFont('helvetica','bold'); pdf.text('Продавець', M, y);
-    pdf.setFont('helvetica','normal');
-    const sellerLines = [s.name, s.tax_id?`ЄДРПОУ/ІПН: ${s.tax_id}`:'', s.iban?`IBAN: ${s.iban}`:'', s.address||''].filter(Boolean);
-    sellerLines.forEach((t,i)=> pdf.text(String(t), M, y+6+i*5));
-
-    pdf.setFont('helvetica','bold'); pdf.text('Покупець', M+W/2, y);
-    pdf.setFont('helvetica','normal');
-    const buyerLines  = [b.name, b.tax_id?`ЄДРПОУ/ІПН: ${b.tax_id}`:'', b.iban?`IBAN: ${b.iban}`:'', b.address||''].filter(Boolean);
-    buyerLines.forEach((t,i)=> pdf.text(String(t), M+W/2, y+6+i*5));
-    y += 6 + Math.max(sellerLines.length, buyerLines.length)*5 + 6;
-
-    const cols = [
-      { key:'name',  title:'Найменування', w:86 },
-      { key:'qty',   title:'К-сть',         w:20 },
-      { key:'unit',  title:'Од.',           w:20 },
-      { key:'price', title:'Ціна',          w:30 },
-      { key:'line_total', title:'Сума',     w:30 },
-    ];
-    pdf.setFont('helvetica','bold');
-    let x = M; cols.forEach(c=>{ pdf.text(c.title, x+1, y); x += c.w; });
-    y += 4; pdf.setFont('helvetica','normal');
-
-    (doc.items||[]).forEach(it=>{
-      x = M;
-      const row = [
-        String(it.name||''), String(it.qty||''), String(it.unit||''),
-        money(it.price||'0'), money(it.line_total || (Number(it.qty||1)*Number(it.price||0)))
-      ];
-      row.forEach((v,i)=>{
-        const cw = cols[i].w;
-        const lines = pdf.splitTextToSize(v, cw-2);
-        lines.forEach((ln,j)=> pdf.text(ln, x+1, y + j*5));
-        y += (lines.length-1)*5;
-        x += cw;
-      });
-      y += 6;
-      if (y > 280){ pdf.addPage(); y = 20; }
-    });
-
-    y += 2;
-    const cur = doc.invoice.currency || 'UAH';
-    pdf.text(`Разом без ПДВ: ${money(doc.invoice.subtotal)} ${cur}`, M+W/2, y); y += 6;
-    pdf.text(`ПДВ: ${money(doc.invoice.tax_total)} ${cur}`, M+W/2, y); y += 6;
-    pdf.setFont('helvetica','bold');
-    pdf.text(`До оплати: ${money(doc.invoice.total)} ${cur}`, M+W/2, y); y += 8;
-
-    if (doc.invoice.notes){
-      pdf.setFont('helvetica','normal');
-      pdf.text('Примітки:', M, y); y += 5;
-      pdf.text(pdf.splitTextToSize(String(doc.invoice.notes), W), M, y);
-    }
-
-    const url = pdf.output('bloburl');
-    if (window.Telegram?.WebApp?.openLink) {
-      window.Telegram.WebApp.openLink(url);
-    } else {
-      const a = document.createElement('a'); a.href = url; a.download = 'invoice.pdf';
-      document.body.appendChild(a); a.click();
-      setTimeout(()=>URL.revokeObjectURL(url), 5000);
-    }
-  }
-
-  $('#save').onclick = async () => {
-    try{
-      const res = await saveInvoice();
-      $('#result').classList.remove('hidden');
-      $('#toast').classList.remove('err'); $('#toast').classList.add('ok');
-      $('#toast').textContent = `Збережено. № ${res.number}. Сума: ${res.total}`;
-
-      $('#btnHtml').onclick = () => {
-        const url = res.public_url + (res.public_url.includes('?') ? '&' : '?') + 'ngrok-skip-browser-warning=1';
-        (window.Telegram?.WebApp?.openLink ? window.Telegram.WebApp.openLink(url) : window.open(url, '_blank'));
-      };
-
-      $('#btnPdf').onclick  = async () => {
-        try {
-          const id = res.id || res.invoice_id;
-          const doc = await fetchInvoiceJson(id);
-          pdfFromJson(doc);
-        } catch (e) {
-          $('#toast').classList.remove('ok'); $('#toast').classList.add('err');
-          $('#toast').textContent = 'Помилка PDF: ' + e.message;
-        }
-      };
-
-      $('#btnNew').onclick  = () => location.reload();
-    }catch(e){
-      $('#result').classList.remove('hidden');
-      $('#toast').classList.remove('ok'); $('#toast').classList.add('err');
-      $('#toast').textContent = 'Помилка збереження: ' + e.message;
-    }
-  };
-})();
-</script>
 </body>
 </html>
