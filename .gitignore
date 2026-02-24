@@ -1,0 +1,28 @@
+# === INVOUA: local-only / generated / secrets (DO NOT COMMIT) ===
+.local/
+.generated/
+.venv/
+__pycache__/
+*.pyc
+# env / secrets
+.env
+.env.*
+env.ps1
+*.pem
+*.key
+*.pfx
+*.p12
+*.kdb
+*.crt
+*.cer
+*.der
+*.jks
+*.keystore
+secrets.*
+**/secrets/**
+**/.secrets/**
+**/tokens/**
+**/.tokens/**
+# n8n / deploy artifacts (local runtime)
+foundry-core/deploy/audit-trail/
+foundry-core/deploy/registry/
